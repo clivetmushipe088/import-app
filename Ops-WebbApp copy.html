@@ -1,0 +1,2797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIC Logistics — Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* … ALL EXISTING STYLES REMAIN EXACTLY THE SAME … (omitted for brevity, they are unchanged) */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c10;--surface:#0d1117;--card:#161b22;--card2:#1c2128;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
+  --text:#e6edf3;--muted:#7d8590;--muted2:#a8b3bf;
+  --green:#3fb950;--green-dim:rgba(63,185,80,0.12);
+  --blue:#58a6ff;--blue-dim:rgba(88,166,255,0.12);
+  --red:#f85149;--red-dim:rgba(248,81,73,0.12);
+  --orange:#d29922;--orange-dim:rgba(210,153,34,0.12);
+  --purple:#bc8cff;--purple-dim:rgba(188,140,255,0.12);
+  --teal:#39d353;--teal-dim:rgba(57,211,83,0.1);
+  --yellow:#e3b341;--yellow-dim:rgba(227,179,65,0.12);
+  --sea:#1f6feb;--sea-dim:rgba(31,111,235,0.15);
+  --air:#8957e5;--air-dim:rgba(137,87,229,0.15);
+  --road:#bf8700;--road-dim:rgba(191,135,0,0.15);
+  --clear:#1a7f37;--clear-dim:rgba(26,127,55,0.15);
+  --radius:8px;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --sidebar:224px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5}
+
+#app{display:flex;height:100vh;overflow:hidden}
+
+.sidebar{
+  width:var(--sidebar);background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+  overflow-y:auto;
+}
+.sidebar-logo{
+  padding:18px 16px 14px;
+  border-bottom:1px solid var(--border);
+}
+.logo-tag{font-size:10px;font-weight:600;letter-spacing:.12em;color:var(--green);text-transform:uppercase;margin-bottom:2px}
+.logo-name{font-size:14px;font-weight:700;color:var(--text)}
+.logo-sub{font-size:11px;color:var(--muted);margin-top:1px}
+
+.nav-section{padding:10px 8px 2px;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.nav-item{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;margin:1px 4px;
+  border-radius:6px;cursor:pointer;
+  font-size:13px;font-weight:500;color:var(--muted2);
+  transition:all .12s;user-select:none;
+}
+.nav-item:hover{background:rgba(255,255,255,0.05);color:var(--text)}
+.nav-item.active{background:var(--green-dim);color:var(--green)}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.nav-item .count{margin-left:auto;font-size:11px;font-family:var(--mono);color:var(--muted);background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:10px}
+
+.sidebar-footer{margin-top:auto;padding:12px 12px 16px;border-top:1px solid var(--border)}
+.footer-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.footer-val{font-size:12px;font-weight:500;color:var(--muted2);font-family:var(--mono)}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+  flex-shrink:0;
+}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:20px;
+  font-size:11px;font-weight:600;
+}
+.page-title{font-size:16px;font-weight:700}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:700;color:var(--text);font-family:var(--mono);line-height:1}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none}
+.search-input{
+  width:100%;padding:7px 10px 7px 32px;
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:13px;outline:none;
+  transition:border-color .15s;
+}
+.search-input:focus{border-color:var(--green)}
+.search-input::placeholder{color:var(--muted)}
+.filter-select{
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:var(--radius);padding:7px 10px;
+  color:var(--text);font-family:var(--font);font-size:13px;outline:none;cursor:pointer;
+}
+.filter-select:focus{border-color:var(--green)}
+.filter-select option{background:var(--card)}
+
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:7px 14px;border-radius:var(--radius);
+  font-family:var(--font);font-size:12px;font-weight:600;
+  cursor:pointer;border:none;transition:all .12s;
+}
+.btn-green{background:var(--green);color:#000}
+.btn-green:hover{background:#3dd146}
+.btn-ghost{background:transparent;color:var(--muted2);border:1px solid var(--border2)}
+.btn-ghost:hover{background:rgba(255,255,255,0.05);color:var(--text)}
+.btn-danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,81,73,0.2)}
+.btn-danger:hover{background:rgba(248,81,73,0.2)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-icon{padding:6px;border-radius:6px}
+
+.table-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.table-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 240px)}
+table{width:100%;border-collapse:separate;border-spacing:0 6px}
+th{
+  text-align:left;padding:9px 12px;
+  font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);white-space:nowrap;
+  position:sticky;top:0;z-index:10;
+  background:var(--card);
+  border-bottom:1px solid var(--border2);
+  border-right:1px solid var(--border);
+}
+th:last-child{border-right:none}
+thead tr{background:var(--card)}
+td{padding:11px 12px;font-size:12px;color:var(--text);vertical-align:middle;border-right:1px solid rgba(255,255,255,0.04)}
+td:last-child{border-right:none}
+tbody tr{transition:background .1s,box-shadow .1s;cursor:pointer;background:var(--card2);box-shadow:0 1px 4px rgba(0,0,0,0.22);border-radius:8px}
+tbody tr:hover{background:#222830;box-shadow:0 2px 8px rgba(0,0,0,0.32)}
+tbody tr td:first-child{border-radius:8px 0 0 8px}
+tbody tr td:last-child{border-radius:0 8px 8px 0}
+.td-mono{font-family:var(--mono);font-size:11px;color:var(--muted2)}
+.td-bold{font-weight:600}
+.td-dim{color:var(--muted);font-size:11px}
+.td-truncate{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.b-green{background:var(--green-dim);color:var(--green)}
+.b-blue{background:var(--blue-dim);color:var(--blue)}
+.b-red{background:var(--red-dim);color:var(--red)}
+.b-orange{background:var(--orange-dim);color:var(--orange)}
+.b-purple{background:var(--purple-dim);color:var(--purple)}
+.b-yellow{background:var(--yellow-dim);color:var(--yellow)}
+.b-gray{background:rgba(255,255,255,0.07);color:var(--muted2)}
+.b-sea{background:var(--sea-dim);color:var(--blue)}
+.b-air{background:var(--air-dim);color:var(--purple)}
+.b-road{background:var(--road-dim);color:var(--orange)}
+.b-clear{background:var(--clear-dim);color:var(--green)}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.8);
+  backdrop-filter:blur(6px);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:12px;width:100%;max-width:780px;
+  max-height:90vh;overflow-y:auto;
+  transform:translateY(12px) scale(.98);transition:transform .2s;
+  box-shadow:0 24px 80px rgba(0,0,0,.7);
+}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 22px 14px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--card);z-index:1;
+}
+.modal-title{font-size:15px;font-weight:700}
+.modal-close{width:26px;height:26px;border-radius:6px;background:rgba(255,255,255,0.05);border:none;color:var(--muted2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.modal-close:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.modal-body{padding:18px 22px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--card)}
+
+.form-section{margin-bottom:20px}
+.form-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.span2{grid-column:span 2}
+.form-group.span3{grid-column:span 3}
+label{font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em}
+input,select,textarea{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:6px;padding:8px 10px;color:var(--text);
+  font-family:var(--font);font-size:12px;outline:none;
+  transition:border-color .15s;width:100%;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green)}
+input::placeholder,textarea::placeholder{color:var(--muted)}
+textarea{resize:vertical;min-height:70px}
+select option{background:var(--card)}
+
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:89;opacity:0;pointer-events:none;transition:opacity .25s}
+.panel-overlay.open{opacity:1;pointer-events:all}
+.detail-panel{
+  position:fixed;top:0;right:-500px;width:480px;height:100vh;
+  background:var(--card);border-left:1px solid var(--border2);
+  z-index:90;overflow-y:auto;transition:right .28s ease;
+  box-shadow:-16px 0 50px rgba(0,0,0,.5);
+}
+.detail-panel.open{right:0}
+.panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 22px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--card);z-index:1;
+}
+.panel-title{font-size:15px;font-weight:700;font-family:var(--mono)}
+.panel-body{padding:18px 22px}
+.panel-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 8px}
+.panel-section:first-child{margin-top:0}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);gap:12px}
+.detail-row:last-child{border-bottom:none}
+.detail-key{font-size:11px;color:var(--muted);flex-shrink:0;width:130px}
+.detail-val{font-size:12px;color:var(--text);text-align:right;font-family:var(--mono)}
+
+.confirm-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.8);
+  backdrop-filter:blur(4px);z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .15s;
+}
+.confirm-overlay.open{opacity:1;pointer-events:all}
+.confirm-box{
+  background:var(--card);border:1px solid rgba(248,81,73,.3);
+  border-radius:12px;padding:26px 26px 20px;
+  width:100%;max-width:360px;text-align:center;
+  transform:scale(.95);transition:transform .15s;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.confirm-overlay.open .confirm-box{transform:scale(1)}
+.confirm-icon{font-size:30px;margin-bottom:10px}
+.confirm-title{font-size:15px;font-weight:700;margin-bottom:5px}
+.confirm-msg{font-size:12px;color:var(--muted2);margin-bottom:20px;line-height:1.6}
+.confirm-actions{display:flex;gap:8px;justify-content:center}
+
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:8px;padding:10px 14px;font-size:12px;font-weight:500;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  animation:slideIn .2s ease;max-width:300px;cursor:pointer;
+}
+.toast.success{border-color:rgba(63,185,80,.3)}
+.toast.error{border-color:rgba(248,81,73,.3)}
+@keyframes slideIn{from{transform:translateX(16px);opacity:0}}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty-icon{font-size:32px;margin-bottom:10px}
+.empty-title{font-size:13px;font-weight:600;color:var(--muted2);margin-bottom:4px}
+
+.loading-state{text-align:center;padding:60px}
+.spinner{width:24px;height:24px;margin:0 auto 10px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.pipeline-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px}
+.type-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 18px;
+  border-left:3px solid;
+}
+.type-card.sea{border-left-color:var(--sea)}
+.type-card.air{border-left-color:var(--air)}
+.type-card.road{border-left-color:var(--road)}
+.type-card.clear{border-left-color:var(--clear)}
+.type-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.type-card-name{font-size:12px;font-weight:700;color:var(--text)}
+.type-card-total{font-size:22px;font-weight:700;font-family:var(--mono)}
+.type-card-stats{display:flex;gap:14px}
+.type-stat{font-size:11px;color:var(--muted)}
+.type-stat span{font-weight:600;color:var(--muted2)}
+
+.container-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.container-row{display:flex;gap:8px;align-items:center}
+.container-row input{flex:1}
+.container-row .size-input{width:110px;flex:none}
+.container-row-remove{width:28px;height:28px;flex-shrink:0;border-radius:6px;background:var(--red-dim);border:1px solid rgba(248,81,73,0.2);color:var(--red);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.container-row-remove:hover{background:rgba(248,81,73,0.25)}
+.add-container-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:var(--green-dim);border:1px solid rgba(63,185,80,0.2);color:var(--green);font-size:11px;font-weight:600;cursor:pointer;transition:all .12s}
+.add-container-btn:hover{background:rgba(63,185,80,0.2)}
+.container-tag{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-size:11px;font-family:var(--mono);margin:2px}
+
+.ctr-card{background:var(--surface);border-radius:7px;margin-bottom:6px;overflow:hidden;border:1px solid transparent;transition:border-color .15s}
+.ctr-card.expanded{border-color:var(--border2)}
+.ctr-header{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:pointer;user-select:none}
+.ctr-header:hover .ctr-no{color:var(--blue)}
+.ctr-chevron{color:var(--muted);font-size:10px;transition:transform .15s;flex-shrink:0}
+.ctr-card.expanded .ctr-chevron{transform:rotate(90deg)}
+.ctr-no{font-family:var(--mono);font-size:12px;font-weight:600;flex:1}
+.ctr-expand{padding:0 10px;max-height:0;overflow:hidden;transition:max-height .2s ease,padding .2s}
+.ctr-card.expanded .ctr-expand{max-height:500px;padding:0 10px 10px}
+.ctr-field-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
+.ctr-field-row:last-child{border-bottom:none}
+.ctr-field-key{font-size:11px;color:var(--muted);flex-shrink:0;width:130px}
+.ctr-field-val{font-size:12px;color:var(--text);font-family:var(--mono);cursor:pointer;border-radius:4px;padding:2px 6px;margin:-2px -6px;transition:background .12s;text-align:right}
+.ctr-field-val:hover{background:rgba(88,166,255,0.1);color:var(--blue)}
+
+.att-grid{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.att-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;transition:border-color .15s}
+.att-item:hover{border-color:var(--border2)}
+.att-icon{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.att-info{flex:1;min-width:0}
+.att-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.att-meta{font-size:10px;color:var(--muted);margin-top:1px}
+.att-actions{display:flex;gap:4px;flex-shrink:0}
+.att-btn{width:26px;height:26px;border-radius:5px;border:1px solid var(--border2);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;text-decoration:none}
+.att-btn:hover{border-color:var(--blue);color:var(--blue)}
+.att-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.att-upload-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:7px;border:1px dashed rgba(88,166,255,.35);background:rgba(88,166,255,.05);color:var(--blue);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;width:100%}
+.att-upload-btn:hover{border-color:var(--blue);background:rgba(88,166,255,.1)}
+.att-uploading{opacity:.5;pointer-events:none}
+
+.pdf-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.pdf-overlay.open{opacity:1;pointer-events:all}
+.pdf-toolbar{display:flex;align-items:center;justify-content:space-between;width:90vw;max-width:960px;padding:10px 4px;flex-shrink:0}
+.pdf-filename{font-size:13px;font-weight:600;color:#fff;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%}
+.pdf-toolbar-actions{display:flex;gap:8px;flex-shrink:0}
+.pdf-frame{width:90vw;max-width:960px;height:80vh;border:none;border-radius:8px;background:#fff}
+
+::-webkit-scrollbar{width:5px;height:5px}
+
+.editable-val{cursor:pointer;border-radius:4px;padding:2px 6px;margin:-2px -6px;transition:background .12s;text-align:right}
+.editable-val:hover{background:rgba(88,166,255,0.1);color:var(--blue)}
+.editable-val.editing{background:rgba(88,166,255,0.08)}
+.inline-input{background:var(--surface);border:1px solid var(--blue);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 7px;width:100%;outline:none;text-align:right}
+.inline-save{width:22px;height:22px;border-radius:5px;background:rgba(63,185,80,.18);border:1px solid rgba(63,185,80,.4);color:#3fb950;font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.inline-cancel{width:22px;height:22px;border-radius:5px;background:var(--surface);border:1px solid var(--border2);color:var(--muted);font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+
+.cal-popup{position:fixed;z-index:500;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:12px;box-shadow:0 16px 48px rgba(0,0,0,.5);width:252px;user-select:none}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-month-label{font-size:13px;font-weight:700}
+.cal-nav{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text);cursor:pointer;width:26px;height:26px;font-size:14px;display:flex;align-items:center;justify-content:center}
+.cal-nav:hover{background:var(--surface)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day-name{font-size:10px;color:var(--muted);text-align:center;padding:2px 0;font-weight:600}
+.cal-day{font-size:12px;text-align:center;padding:5px 2px;border-radius:5px;cursor:pointer;color:var(--text)}
+.cal-day:hover{background:var(--surface)}
+.cal-day.today{color:var(--blue);font-weight:700}
+.cal-day.selected{background:var(--blue);color:#fff;font-weight:700}
+.cal-day.other-month{color:var(--muted);opacity:.4}
+.cal-footer{display:flex;gap:6px;margin-top:10px}
+.cal-btn{flex:1;padding:5px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--muted2);font-size:11px;cursor:pointer}
+.cal-btn:hover{border-color:var(--blue);color:var(--blue)}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.14)}
+
+@media(max-width:900px){
+  .sidebar{width:52px}
+  .nav-item span,.nav-item .count,.nav-section,.logo-name,.logo-sub,.logo-tag,.sidebar-footer{display:none}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .pipeline-grid{grid-template-columns:1fr}
+}
+
+body.light {
+  --bg:        #f5f5f7;
+  --surface:   #ffffff;
+  --card:      #ffffff;
+  --card2:     #f0f0f3;
+  --border:    rgba(0,0,0,0.08);
+  --border2:   rgba(0,0,0,0.14);
+  --text:      #1a1a2e;
+  --muted:     #8a8a9a;
+  --muted2:    #555566;
+  --sea-dim:   rgba(31,111,235,0.1);
+  --air-dim:   rgba(137,87,229,0.1);
+  --road-dim:  rgba(191,135,0,0.1);
+  --clear-dim: rgba(26,127,55,0.1);
+  --green-dim: rgba(34,197,94,0.1);
+  --blue-dim:  rgba(59,130,246,0.1);
+  --red-dim:   rgba(239,68,68,0.1);
+  --orange-dim:rgba(249,115,22,0.1);
+  --yellow-dim:rgba(234,179,8,0.1);
+  --purple-dim:rgba(168,85,247,0.1);
+  --teal-dim:  rgba(20,184,166,0.1);
+}
+body.light .sidebar { box-shadow: 2px 0 12px rgba(0,0,0,0.06); }
+body.light table th { background: #f5f5f7; border-bottom-color: rgba(0,0,0,0.1); border-right-color: rgba(0,0,0,0.06); }
+body.light .modal, body.light .detail-panel, body.light .confirm-box { box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+body.light input, body.light select, body.light textarea { background: #f5f5f7; }
+body.light .filter-select { background: #f5f5f7; }
+body.light .filter-select option { background: #ffffff; }
+body.light select option { background: #ffffff; }
+.theme-btn { font-size: 16px; padding: 5px 8px; line-height: 1; cursor: pointer; background: transparent; border: 1px solid var(--border2); border-radius: 8px; color: var(--muted2); transition: all .15s; }
+.theme-btn:hover { background: rgba(128,128,128,0.1); color: var(--text); }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-tag">PIC</div>
+    <div class="logo-name">Operations</div>
+    <div class="logo-sub">Freight Management</div>
+  </div>
+  <div class="nav-section">Overview</div>
+  <div class="nav-item active" data-page="pipeline" onclick="navigate('pipeline')">
+    <div class="nav-dot" style="background:var(--muted)"></div>
+    <span>Pipeline</span>
+    <span class="count" id="cnt-all">0</span>
+  </div>
+  <div class="nav-section">Freight Types</div>
+  <div class="nav-item" data-page="sea" onclick="navigate('sea')">
+    <div class="nav-dot" style="background:var(--sea)"></div>
+    <span>Sea Freight</span>
+    <span class="count" id="cnt-sea">0</span>
+  </div>
+  <div class="nav-item" data-page="air" onclick="navigate('air')">
+    <div class="nav-dot" style="background:var(--air)"></div>
+    <span>Air Freight</span>
+    <span class="count" id="cnt-air">0</span>
+  </div>
+  <div class="nav-item" data-page="road" onclick="navigate('road')">
+    <div class="nav-dot" style="background:var(--road)"></div>
+    <span>Road Freight</span>
+    <span class="count" id="cnt-road">0</span>
+  </div>
+  <div class="nav-item" data-page="clearing" onclick="navigate('clearing')">
+    <div class="nav-dot" style="background:var(--clear)"></div>
+    <span>Clearing Only</span>
+    <span class="count" id="cnt-clear">0</span>
+  </div>
+  <div class="nav-section">Invoice Status</div>
+  <div class="nav-item" data-page="inv-needs" onclick="navigate('inv-needs')">
+    <div class="nav-dot" style="background:var(--yellow)"></div>
+    <span>Needs Invoicing</span>
+    <span class="count" id="cnt-inv-needs">0</span>
+  </div>
+  <div class="nav-item" data-page="inv-sent" onclick="navigate('inv-sent')">
+    <div class="nav-dot" style="background:var(--blue)"></div>
+    <span>Invoice Sent</span>
+    <span class="count" id="cnt-inv-sent">0</span>
+  </div>
+  <div class="nav-item" data-page="inv-partial" onclick="navigate('inv-partial')">
+    <div class="nav-dot" style="background:var(--orange)"></div>
+    <span>Partially Paid</span>
+    <span class="count" id="cnt-inv-partial">0</span>
+  </div>
+  <div class="nav-item" data-page="inv-paid" onclick="navigate('inv-paid')">
+    <div class="nav-dot" style="background:var(--green)"></div>
+    <span>Paid</span>
+    <span class="count" id="cnt-inv-paid">0</span>
+  </div>
+  <div class="nav-item" data-page="inv-disputed" onclick="navigate('inv-disputed')">
+    <div class="nav-dot" style="background:var(--red)"></div>
+    <span>Disputed</span>
+    <span class="count" id="cnt-inv-disputed">0</span>
+  </div>
+  <div class="nav-section">Tools</div>
+  <div class="nav-item" data-page="merge" onclick="navigate('merge')">
+    <div class="nav-dot" style="background:var(--purple)"></div>
+    <span>Merge Duplicates</span>
+    <span class="count" id="cnt-merge" style="display:none"></span>
+  </div>
+  <div class="sidebar-footer">
+    <div class="footer-label">Last sync</div>
+    <div class="footer-val" id="last-sync">—</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="page-title" id="page-title">Pipeline</div>
+      <div class="topbar-badge b-gray" id="page-badge"></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="refreshAll()">↻ Refresh</button>
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">☀️</button>
+      <button class="btn btn-green" id="add-btn" onclick="openAddModal()" style="display:none">+ New File</button>
+    </div>
+  </div>
+  <div class="content" id="main-content">
+    <div class="loading-state"><div class="spinner"></div>Loading...</div>
+  </div>
+</main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- PANEL -->
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="panel-header">
+    <div class="panel-title" id="panel-title"></div>
+    <button class="modal-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-title" id="confirm-title">Delete this file?</div>
+    <div class="confirm-msg" id="confirm-msg">This will permanently delete the record from Airtable.</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok" onclick="runConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- PDF PREVIEW -->
+<div class="pdf-overlay" id="pdf-overlay" onclick="closePdfPreview(event)">
+  <div class="pdf-toolbar">
+    <div class="pdf-filename" id="pdf-filename"></div>
+    <div class="pdf-toolbar-actions">
+      <a class="btn btn-ghost btn-sm" id="pdf-download" href="" target="_blank" download style="text-decoration:none">⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" onclick="closePdfPreview()">✕ Close</button>
+    </div>
+  </div>
+  <iframe class="pdf-frame" id="pdf-frame" src=""></iframe>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG — replace with your values
+// ════════════════════════════════════════
+const CONFIG = {
+  apiKey: 'pat29JCntlU0qShQE.5a2dcad93664f7a23d9a2ecbbfe75dce95ea3c170a898f8d001446673bd6befb',
+  baseId: 'appypkTo1RMkbIjKl',
+  base:   'https://api.airtable.com/v0',
+  tables: {
+    sea:      'Sea Freight',
+    air:      'Air Freight',
+    road:     'Road Freight',
+    clearing: 'Clearing Only',
+    clients:    'Clients',
+    containers: 'Containers'
+  }
+};
+
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+const S = {
+  page: 'pipeline',
+  sea: [], air: [], road: [], clearing: [], clients: [], containers: [],
+  loading: false,
+  search: { sea:'', air:'', road:'', clearing:'' },
+  statusFilter: { sea:'all', air:'all', road:'all', clearing:'all' },
+};
+
+const STATUSES = [
+  'Awaiting Arrival',
+  'In Transit',
+  'Awaiting Discharge',
+  'Under Border Clearance',
+  'Under Port Clearance',
+  'Under Customs Clearance',
+  'Awaiting Clearance',
+  'Awaiting Loading',
+  'Awaiting Offloading',
+  'Under Offloading',
+  'Delivered',
+  'On Hold',
+  'TBA'
+];
+const INVOICE_STATUSES = ['Not Invoiced','Invoice Sent','Partially Paid','Paid','Disputed','Wait'];
+
+function invoiceBadge(s) {
+  if (!s) return '';
+  const v = (s||'').toLowerCase();
+  if (v.includes('paid') && !v.includes('partial'))   return `<span class="badge b-green">${s}</span>`;
+  if (v.includes('partial'))  return `<span class="badge b-yellow">${s}</span>`;
+  if (v.includes('sent'))     return `<span class="badge b-blue">${s}</span>`;
+  if (v.includes('disputed')) return `<span class="badge b-red">${s}</span>`;
+  if (v.includes('not'))      return `<span class="badge b-gray">${s}</span>`;
+  if (v.includes('wait'))     return `<span class="badge b-purple">${s}</span>`;
+  return `<span class="badge b-gray">${s}</span>`;
+}
+const TYPE_META = {
+  sea:      { label:'Sea Freight',    color:'var(--sea)',   badge:'b-sea',   icon:'🚢' },
+  air:      { label:'Air Freight',    color:'var(--air)',   badge:'b-air',   icon:'✈️' },
+  road:     { label:'Road Freight',   color:'var(--road)',  badge:'b-road',  icon:'🚛' },
+  clearing: { label:'Clearing Only',  color:'var(--clear)', badge:'b-clear', icon:'🏛️' },
+};
+
+// ════════════════════════════════════════
+// AIRTABLE API
+// ════════════════════════════════════════
+const headers = () => ({
+  'Authorization': `Bearer ${CONFIG.apiKey}`,
+  'Content-Type': 'application/json'
+});
+
+async function atFetch(table) {
+  let all = [], offset = null;
+  do {
+    const url = `${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}${offset?`?offset=${offset}`:''}`;
+    const r = await fetch(url, { headers: headers() });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
+    const d = await r.json();
+    all.push(...d.records);
+    offset = d.offset;
+  } while (offset);
+  return all;
+}
+
+async function atCreate(table, fields) {
+  const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}`, {
+    method:'POST', headers:headers(), body:JSON.stringify({fields})
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
+  return d;
+}
+
+async function atUpdate(table, id, fields) {
+  const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}/${id}`, {
+    method:'PATCH', headers:headers(), body:JSON.stringify({fields})
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
+  return d;
+}
+
+async function atDelete(table, id) {
+  const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}/${id}`, {
+    method:'DELETE', headers:headers()
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
+  return d;
+}
+
+// ════════════════════════════════════════
+// DATA LOADING
+// ════════════════════════════════════════
+function strOrArr(v) {
+  if (!v) return '';
+  return Array.isArray(v) ? (v[0]||'') : v;
+}
+
+function normSea(r) {
+  const f = r.fields;
+  // Only keep file-level fields; container data comes from linked Containers table
+  return {
+    id: r.id, type:'sea',
+    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    client:        Array.isArray(f['Client']) ? f['Client'] : [],
+    clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
+    docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RCVD'])||'',
+    // container data is not stored here anymore; we'll pull from containers table
+    container:     '',  // kept for legacy compatibility but not used
+    size:          '',
+    bl:            strOrArr(f['BL Number'])||strOrArr(f['BL NO'])||'',
+    shippingLine:  strOrArr(f['Shipping Line'])||strOrArr(f['SHIPPING LINE'])||'',
+    goods:         strOrArr(f['Description of Goods'])||strOrArr(f['GOODS DESCRIPTIONS'])||'',
+    weight:        '', // moved to containers
+    pol:           strOrArr(f['Port of Loading'])||strOrArr(f['POL'])||'',
+    pod:           strOrArr(f['POD'])||'',
+    exporter:      strOrArr(f['Exporter'])||strOrArr(f['EXPORTER'])||'',
+    dateDischarge: '',
+    containerLoadDate: '',
+    rra:           '',
+    destination:   '',
+    truckNo:       '',
+    trucking:      '',
+    arrivalMagerwa:'',
+    dateOffload:   '',
+    remarks:       strOrArr(f['Remarks'])||strOrArr(f['REMARKS'])||'',
+    containerStatuses:'',
+    invoiceStatus:    strOrArr(f['Invoice Status'])||'',
+    status:           strOrArr(f['Status'])||'',
+    attachments: Array.isArray(f['Attachment']) ? f['Attachment'] : [],
+    raw: f,
+  };
+}
+
+// (other norm functions unchanged)
+function normAir(r) {
+  const f = r.fields;
+  return {
+    id: r.id, type:'air',
+    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    client:        Array.isArray(f['Client']) ? f['Client'] : [],
+    clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
+    docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RECEIPT'])||'',
+    airwaybill:    strOrArr(f['Airwaybill'])||strOrArr(f['AIRWAYBILL'])||'',
+    weight:        strOrArr(f['Weight (KGS)'])||strOrArr(f['WEIGHT'])||'',
+    pol:           strOrArr(f['Port of Loading'])||strOrArr(f['POL'])||'',
+    pod:           strOrArr(f['POD'])||'',
+    airline:       strOrArr(f['Airline'])||strOrArr(f['AIRLINE'])||'',
+    rra:           strOrArr(f['RRA Reference'])||strOrArr(f['RRA'])||'',
+    goods:         strOrArr(f['Description of Goods'])||strOrArr(f['GOODS DISCRIPTION'])||'',
+    dateDelivered: strOrArr(f['Date Delivered'])||strOrArr(f['DATE DELIVERED'])||'',
+    status:        strOrArr(f['Status'])||strOrArr(f['STATUS'])||'TBA',
+    invoiceStatus: strOrArr(f['Invoice Status'])||'',
+    attachments: Array.isArray(f['Attachment']) ? f['Attachment'] : [],
+    raw: f,
+  };
+}
+
+function normRoad(r) {
+  const f = r.fields;
+  return {
+    id: r.id, type:'road',
+    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    client:        Array.isArray(f['Client']) ? f['Client'] : [],
+    clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
+    docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RECEIPT'])||'',
+    goods:         strOrArr(f['Description of Goods'])||strOrArr(f['GOODS DESCRIPTIONS'])||'',
+    container:     strOrArr(f['Container Number'])||strOrArr(f['CONTAINER NUMBER/TYPE'])||'',
+    bl:            strOrArr(f['BL Number'])||strOrArr(f['BL NUMBER'])||'',
+    weight:        strOrArr(f['Weight (KGS)'])||strOrArr(f['WEIGHT'])||'',
+    pol:           strOrArr(f['Port of Loading'])||strOrArr(f['POL'])||'',
+    pod:           strOrArr(f['POD'])||'',
+    rra:           strOrArr(f['RRA Reference'])||strOrArr(f['RRA'])||'',
+    truckNo:       strOrArr(f['Truck No'])||strOrArr(f['TRUCK NO'])||'',
+    trucking:      strOrArr(f['Trucking Company'])||strOrArr(f['TRANSPORTER'])||'',
+    dateOffload:   strOrArr(f['Date of Offload'])||strOrArr(f['DATE OF OFFLOAD'])||'',
+    containerStatuses:strOrArr(f['Container Statuses'])||'',
+    invoiceStatus:    strOrArr(f['Invoice Status'])||'',
+    status:           strOrArr(f['Status'])||'',
+    attachments: Array.isArray(f['Attachment']) ? f['Attachment'] : [],
+    raw: f,
+  };
+}
+
+function normClearing(r) {
+  const f = r.fields;
+  return {
+    id: r.id, type:'clearing',
+    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    client:        Array.isArray(f['Client']) ? f['Client'] : [],
+    clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
+    docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RECEIVED'])||'',
+    container:     strOrArr(f['Container Number'])||'',
+    size:          strOrArr(f['Size'])||strOrArr(f['SIZE '])||'',
+    bl:            strOrArr(f['BL Number'])||strOrArr(f['BL'])||'',
+    shippingLine:  strOrArr(f['Shipping Line'])||strOrArr(f['Shipping LINE'])||'',
+    goods:         strOrArr(f['Description of Goods'])||strOrArr(f['Description OF GOODS'])||'',
+    weight:        strOrArr(f['Weight (KGS)'])||strOrArr(f['G. W/ KGS '])||'',
+    pol:           strOrArr(f['Port of Loading'])||strOrArr(f['PORT OF LOADING'])||'',
+    destination:   strOrArr(f['Destination'])||strOrArr(f['DESTINATION'])||'',
+    exporter:      strOrArr(f['Exporter'])||strOrArr(f['EXPORTER'])||'',
+    loadingDate:   strOrArr(f['Container Loading Date'])||strOrArr(f['LOADING DATE'])||'',
+    rra:           strOrArr(f['RRA Reference'])||strOrArr(f['RRA REFERENCE'])||'',
+    truckNo:       strOrArr(f['Truck No'])||strOrArr(f['TRUCK NO'])||'',
+    trucking:      strOrArr(f['Trucking Company'])||strOrArr(f['TRUCKING COMPANY'])||'',
+    dateOffload:   strOrArr(f['Date of Offload'])||strOrArr(f['DATE FOR OFFLOADED'])||'',
+    remarks:          strOrArr(f['Remarks'])||strOrArr(f['REMARKS '])||'',
+    containerStatuses:strOrArr(f['Container Statuses'])||'',
+    invoiceStatus:    strOrArr(f['Invoice Status'])||'',
+    status:           strOrArr(f['Status'])||'',
+    attachments: Array.isArray(f['Attachment']) ? f['Attachment'] : [],
+    raw: f,
+  };
+}
+
+async function loadAll() {
+  S.loading = true;
+  renderContent();
+  try {
+    const [sea, air, road, clearing, clients, containers] = await Promise.all([
+      atFetch(CONFIG.tables.sea),
+      atFetch(CONFIG.tables.air),
+      atFetch(CONFIG.tables.road),
+      atFetch(CONFIG.tables.clearing),
+      atFetch(CONFIG.tables.clients),
+      atFetch(CONFIG.tables.containers),
+    ]);
+    S.sea        = sea.map(normSea).filter(r => r.fileNumber);
+    S.air        = air.map(normAir).filter(r => r.fileNumber);
+    S.road       = road.map(normRoad).filter(r => r.fileNumber);
+    S.clearing   = clearing.map(normClearing).filter(r => r.fileNumber);
+    S.clients    = clients.map(r => ({id:r.id, name:r.fields['Name']||'', ...r.fields}));
+    S.containers = containers.map(r => ({
+      id:         r.id,
+      fileNumber: (r.fields['File Number']||'').trim(),
+      containerNo:r.fields['Container No']||'',
+      size:       r.fields['Size']||'',
+      status:     r.fields['Status']||'',
+      notes:      r.fields['Notes']||'',
+      truckNo:             r.fields['Truck No']||'',
+      trucking:            r.fields['Trucking Company']||'',
+      arrivalMagerwa:      r.fields['Arrival at Magerwa']||'',
+      dateOffload:         r.fields['Date of Offload']||'',
+      weight:              r.fields['Weight']||'',
+      dateDischarge:       r.fields['Date of Discharge']||'',
+      containerLoadDate:   r.fields['Container loading date']||'',
+      rra:                 r.fields['RRA REFERENCE']||'',
+      destination:         r.fields['Destination']||'',
+      raw:                 r.fields,
+    }));
+    updateCounts();
+    document.getElementById('last-sync').textContent = new Date().toLocaleTimeString();
+  } catch(e) {
+    toast('⚠️ '+e.message, 'error');
+  } finally {
+    S.loading = false;
+    renderContent();
+  }
+}
+
+async function refreshAll() {
+  await loadAll();
+  toast('✅ Data refreshed');
+}
+
+function updateCounts() {
+  const all = [...S.sea, ...S.air, ...S.road, ...S.clearing];
+  document.getElementById('cnt-all').textContent       = all.length;
+  document.getElementById('cnt-sea').textContent       = S.sea.length;
+  document.getElementById('cnt-air').textContent       = S.air.length;
+  document.getElementById('cnt-road').textContent      = S.road.length;
+  document.getElementById('cnt-clear').textContent     = S.clearing.length;
+  document.getElementById('cnt-inv-needs').textContent = all.filter(r=>!r.invoiceStatus||r.invoiceStatus==='Not Invoiced').length;
+  document.getElementById('cnt-inv-sent').textContent  = all.filter(r=>r.invoiceStatus==='Invoice Sent').length;
+  document.getElementById('cnt-inv-partial').textContent = all.filter(r=>r.invoiceStatus==='Partially Paid').length;
+  document.getElementById('cnt-inv-paid').textContent  = all.filter(r=>r.invoiceStatus==='Paid').length;
+  document.getElementById('cnt-inv-disputed').textContent = all.filter(r=>r.invoiceStatus==='Disputed').length;
+  const dupCount = findDuplicateGroups().length;
+  const mergeBadge = document.getElementById('cnt-merge');
+  if (mergeBadge) { mergeBadge.textContent = dupCount; mergeBadge.style.display = dupCount ? '' : 'none'; }
+}
+
+// ════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════
+function navigate(page) {
+  S.page = page;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page===page));
+  const meta = TYPE_META[page];
+  const invoicePages = { 'inv-needs':'Needs Invoicing', 'inv-sent':'Invoice Sent', 'inv-partial':'Partially Paid', 'inv-paid':'Paid', 'inv-disputed':'Disputed' };
+  document.getElementById('page-title').textContent = meta ? meta.label : (invoicePages[page] || (page==='merge' ? 'Merge Duplicates' : 'Pipeline'));
+  document.getElementById('add-btn').style.display = meta ? '' : 'none';
+  renderContent();
+}
+
+function renderContent() {
+  const el = document.getElementById('main-content');
+  if (S.loading) { el.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading from Airtable...</div>`; return; }
+  const renders = {
+    pipeline:    renderPipeline,
+    sea:         ()=>renderFreight('sea'),
+    air:         ()=>renderFreight('air'),
+    road:        ()=>renderFreight('road'),
+    clearing:    ()=>renderFreight('clearing'),
+    merge:       renderMergePage,
+    'inv-needs': ()=>renderInvoicePage('Not Invoiced'),
+    'inv-sent':  ()=>renderInvoicePage('Invoice Sent'),
+    'inv-partial':()=>renderInvoicePage('Partially Paid'),
+    'inv-paid':  ()=>renderInvoicePage('Paid'),
+    'inv-disputed':()=>renderInvoicePage('Disputed'),
+  };
+  el.innerHTML = (renders[S.page]||renderPipeline)();
+  attachListeners();
+}
+
+function attachListeners() {
+  ['sea','air','road','clearing'].forEach(t => {
+    const s = document.getElementById(`search-${t}`);
+    if (s) s.addEventListener('input', e => { S.search[t]=e.target.value; rerenderTable(t); });
+    const f = document.getElementById(`filter-${t}`);
+    if (f) f.addEventListener('change', e => { S.statusFilter[t]=e.target.value; rerenderTable(t); });
+  });
+}
+
+// ════════════════════════════════════════
+// STATUS BADGE
+// ════════════════════════════════════════
+function statusBadge(s) {
+  const v = (s||'').toLowerCase();
+  if (v.includes('deliver'))                    return `<span class="badge b-green">${s}</span>`;
+  if (v.includes('transit'))                    return `<span class="badge b-blue">${s}</span>`;
+  if (v.includes('awaiting discharge'))         return `<span class="badge b-purple">${s}</span>`;
+  if (v.includes('border clearance'))           return `<span class="badge b-orange">${s}</span>`;
+  if (v.includes('port clearance'))             return `<span class="badge b-purple">${s}</span>`;
+  if (v.includes('customs clearance'))          return `<span class="badge b-yellow">${s}</span>`;
+  if (v.includes('clearance')||v.includes('clearing')) return `<span class="badge b-orange">${s}</span>`;
+  if (v.includes('awaiting'))                   return `<span class="badge b-yellow">${s}</span>`;
+  if (v.includes('hold'))                       return `<span class="badge b-red">${s}</span>`;
+  return `<span class="badge b-gray">${s||'TBA'}</span>`;
+}
+
+function derivedStatus(r) {
+  return r.status || 'TBA';
+}
+
+function isActive(r) {
+  const s = derivedStatus(r).toLowerCase();
+  return !s.includes('deliver') && !s.includes('on hold');
+}
+function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch { return d; } }
+
+// ════════════════════════════════════════
+// PIPELINE PAGE
+// ════════════════════════════════════════
+function renderPipeline() {
+  const all = [...S.sea,...S.air,...S.road,...S.clearing];
+  const active = all.filter(r=>isActive(r)).length;
+  const delivered = all.filter(r=>!isActive(r)).length;
+  const types = [
+    {key:'sea', data:S.sea}, {key:'air', data:S.air},
+    {key:'road', data:S.road}, {key:'clearing', data:S.clearing}
+  ];
+  return `
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Total Files</div><div class="stat-value">${all.length}</div><div class="stat-sub">All types</div></div>
+    <div class="stat-card" style="border-color:rgba(63,185,80,.2)"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--green)">${active}</div><div class="stat-sub">In progress</div></div>
+    <div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value">${delivered}</div><div class="stat-sub">Completed</div></div>
+    <div class="stat-card"><div class="stat-label">Clients</div><div class="stat-value">${S.clients.length}</div><div class="stat-sub">On record</div></div>
+  </div>
+  <div class="pipeline-grid">
+    ${types.map(({key,data}) => {
+      const m = TYPE_META[key];
+      const act = data.filter(r=>isActive(r)).length;
+      const del = data.filter(r=>!isActive(r)).length;
+      return `<div class="type-card ${key}" onclick="navigate('${key}')" style="cursor:pointer">
+        <div class="type-card-header">
+          <div class="type-card-name">${m.icon} ${m.label}</div>
+          <span class="badge ${m.badge}">${data.length} files</span>
+        </div>
+        <div class="type-card-total" style="color:${m.color}">${data.length}</div>
+        <div class="type-card-stats">
+          <div class="type-stat">Active <span>${act}</span></div>
+          <div class="type-stat">Delivered <span>${del}</span></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px">Recent Active Files</div>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>File No.</th><th>Type</th><th>Client</th><th>Container/AWB</th><th>Status</th><th>POL → POD</th></tr></thead>
+        <tbody>
+          ${all.filter(r=>isActive(r)).slice(0,15).map(r=>`
+            <tr onclick="openPanel('${r.type}','${r.id}')">
+              <td class="td-mono">${r.fileNumber}</td>
+              <td><span class="badge ${TYPE_META[r.type].badge}">${TYPE_META[r.type].icon} ${TYPE_META[r.type].label}</span></td>
+              <td class="td-bold">${r.clientName||'—'}</td>
+              <td class="td-mono">${r.type==='air' ? r.airwaybill||'—' : r.type==='sea' ? fmtContainerCell(r.fileNumber) : r.truckNo||r.bl||'—'}</td>
+              <td>${r.type==='air' ? statusBadge(r.status) : r.type==='sea' ? (fmtContainerStatusBadges(r.fileNumber)||statusBadge('TBA')) : ''}</td>
+              <td class="td-dim">${r.pol?r.pol+(r.pod?' → '+r.pod:''):'—'}</td>
+            </tr>`).join('')}
+          ${all.filter(r=>isActive(r)).length===0?`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">No active files</div></div></td></tr>`:''}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════
+// INVOICE PAGE
+// ════════════════════════════════════════
+function renderInvoicePage(filterStatus) {
+  const all = [...S.sea,...S.air,...S.road,...S.clearing];
+  const rows = filterStatus === 'Not Invoiced'
+    ? all.filter(r => !r.invoiceStatus || r.invoiceStatus === 'Not Invoiced' || r.invoiceStatus === '')
+    : all.filter(r => r.invoiceStatus === filterStatus);
+
+  document.getElementById('page-badge').textContent = `${rows.length} files`;
+
+  const notInv   = all.filter(r=>!r.invoiceStatus||r.invoiceStatus==='Not Invoiced'||r.invoiceStatus==='').length;
+  const sent     = all.filter(r=>r.invoiceStatus==='Invoice Sent').length;
+  const partial  = all.filter(r=>r.invoiceStatus==='Partially Paid').length;
+  const paid     = all.filter(r=>r.invoiceStatus==='Paid').length;
+  const disputed = all.filter(r=>r.invoiceStatus==='Disputed').length;
+
+  return `
+  <div class="stats-row">
+    <div class="stat-card" style="${filterStatus==='Not Invoiced'?'border-color:rgba(227,179,65,.3)':''}">
+      <div class="stat-label">Needs Invoicing</div>
+      <div class="stat-value" style="color:var(--yellow);cursor:pointer" onclick="navigate('inv-needs')">${notInv}</div>
+    </div>
+    <div class="stat-card" style="${filterStatus==='Invoice Sent'?'border-color:rgba(88,166,255,.3)':''}">
+      <div class="stat-label">Invoice Sent</div>
+      <div class="stat-value" style="color:var(--blue);cursor:pointer" onclick="navigate('inv-sent')">${sent}</div>
+    </div>
+    <div class="stat-card" style="${filterStatus==='Partially Paid'?'border-color:rgba(210,153,34,.3)':''}">
+      <div class="stat-label">Partially Paid</div>
+      <div class="stat-value" style="color:var(--orange);cursor:pointer" onclick="navigate('inv-partial')">${partial}</div>
+    </div>
+    <div class="stat-card" style="${filterStatus==='Paid'?'border-color:rgba(63,185,80,.3)':''}">
+      <div class="stat-label">Paid</div>
+      <div class="stat-value" style="color:var(--green);cursor:pointer" onclick="navigate('inv-paid')">${paid}</div>
+    </div>
+    <div class="stat-card" style="${filterStatus==='Disputed'?'border-color:rgba(248,81,73,.3)':''}">
+      <div class="stat-label">Disputed</div>
+      <div class="stat-value" style="${disputed>0?'color:var(--red)':''};cursor:pointer" onclick="navigate('inv-disputed')">${disputed}</div>
+    </div>
+  </div>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>File No.</th>
+            <th>Type</th>
+            <th>Client</th>
+            <th>Goods</th>
+            <th>File Status</th>
+            <th>Invoice Status</th>
+            <th>Truck No.</th>
+            <th>Trucking Company</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.length === 0
+            ? `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No files in this category</div></div></td></tr>`
+            : rows.map(r=>{
+                const statusOpts = STATUSES.map(s=>`<option value="${s}" ${(r.status||'TBA')===s?'selected':''}>${s}</option>`).join('');
+                const statusCell = `<td onclick="event.stopPropagation()">
+                  <select style="background:transparent;border:none;font-size:11px;font-family:var(--font);cursor:pointer;outline:none;color:var(--muted2)"
+                    onchange="tableStatusUpdate('${r.type}','${r.id}',this.value)">
+                    ${statusOpts}
+                  </select>
+                </td>`;
+                return `<tr onclick="openPanel('${r.type}','${r.id}')">
+                  <td class="td-mono">${r.fileNumber}</td>
+                  <td><span class="badge ${TYPE_META[r.type].badge}">${TYPE_META[r.type].icon} ${TYPE_META[r.type].label}</span></td>
+                  <td class="td-bold">${r.clientName||'—'}</td>
+                  <td class="td-truncate td-dim">${r.goods||'—'}</td>
+                  ${statusCell}
+                  <td onclick="event.stopPropagation()">${invoiceCell(r.type,r)}</td>
+                  <td class="td-mono">${r.truckNo||'—'}</td>
+                  <td class="td-dim td-truncate">${r.trucking||'—'}</td>
+                </tr>`;
+              }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════
+// FREIGHT TABLE PAGE
+// ════════════════════════════════════════
+function getFiltered(type) {
+  return S[type].filter(r => {
+    const sf = S.statusFilter[type];
+    if (sf !== 'all') {
+      if (sf === 'Active' && !isActive(r)) return false;
+      if (sf !== 'Active' && derivedStatus(r) !== sf) return false;
+    }
+    const q = S.search[type].toLowerCase();
+    if (!q) return true;
+    return [r.fileNumber,r.clientName,r.container,r.airwaybill,r.bl,r.goods].some(v=>(v||'').toLowerCase().includes(q));
+  }).sort((a, b) => (a.fileNumber||'').localeCompare(b.fileNumber||'', undefined, {numeric:true, sensitivity:'base'}));
+}
+
+function renderFreight(type) {
+  const data = S[type];
+  const m = TYPE_META[type];
+  const delivered = data.filter(r => (r.status||'').toLowerCase().includes('deliver')).length;
+  const onHold    = data.filter(r => (r.status||'').toLowerCase().includes('on hold')).length;
+  const active    = data.length - delivered - onHold;
+  document.getElementById('page-badge').textContent = `${data.length} files`;
+  return `
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${data.length}</div><div class="stat-sub">All files</div></div>
+    <div class="stat-card" style="border-color:rgba(63,185,80,.2)"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--green)">${active}</div><div class="stat-sub">In progress</div></div>
+    <div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value">${delivered}</div></div>
+    <div class="stat-card"><div class="stat-label">On Hold</div><div class="stat-value" style="color:var(--red)">${data.filter(r=>derivedStatus(r)==='On Hold').length}</div></div>
+  </div>
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <svg width="13" height="13" fill="none" viewBox="0 0 16 16"><path fill="#7d8590" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.85-3.85-.017.017zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+      <input class="search-input" id="search-${type}" placeholder="Search file no., container, client, goods..." value="${S.search[type]}">
+    </div>
+    <select class="filter-select" id="filter-${type}">
+      <option value="all" ${S.statusFilter[type]==='all'?'selected':''}>All Statuses</option>
+      <option value="Active" ${S.statusFilter[type]==='Active'?'selected':''}>Active Only</option>
+      ${STATUSES.map(s=>`<option value="${s}" ${S.statusFilter[type]===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+  </div>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${getHeaders(type)}</tr></thead>
+        <tbody id="tbody-${type}">${renderRows(type, getFiltered(type))}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function getHeaders(type) {
+  const base = `<th>File No.</th><th>Client</th>`;
+  const h = {
+    sea:      base+`<th>Container</th><th>Size</th><th>Truck No.</th><th>BL No.</th><th>Shipping Line</th><th>POL</th><th>POD</th><th>Status</th><th>Docs Rcvd</th><th>Invoice</th>`,
+    air:      base+`<th>Airwaybill</th><th>Airline</th><th>POL</th><th>POD</th><th>Weight</th><th>Status</th><th>Date Delivered</th><th>Invoice</th>`,
+    road:     base+`<th>BL No.</th><th>POL</th><th>POD</th><th>Truck No.</th><th>Status</th><th>Date Offload</th><th>Invoice</th>`,
+    clearing: base+`<th>BL</th><th>Shipping Line</th><th>POL</th><th>POD</th><th>Status</th><th>Docs Rcvd</th><th>Invoice</th>`,
+  };
+  return h[type]||base;
+}
+
+function containersForFile(fileNumber) {
+  return S.containers.filter(c => c.fileNumber.toLowerCase() === (fileNumber||'').toLowerCase());
+}
+
+function fmtContainerCell(fileNumber) {
+  const ctrs = containersForFile(fileNumber);
+  if (!ctrs.length) return '<span style="color:var(--muted)">—</span>';
+  if (ctrs.length === 1) return `<span class="td-mono">${ctrs[0].containerNo||'—'}</span>`;
+  return `<span class="td-mono">${ctrs[0].containerNo||'—'}</span> <span class="badge b-blue" style="font-size:10px;padding:1px 5px">+${ctrs.length-1}</span>`;
+}
+
+function fmtContainerStatusBadges(fileNumber) {
+  const ctrs = containersForFile(fileNumber);
+  if (!ctrs.length) return '';
+  const unique = [...new Set(ctrs.map(c=>c.status).filter(Boolean))];
+  return ' ' + unique.map(s => `<span class="badge b-gray" style="font-size:10px;padding:1px 5px;margin-left:2px">${s}</span>`).join('');
+}
+
+function invoiceStatusStyle(s) {
+  if (!s) return 'color:var(--muted)';
+  const v = (s||'').toLowerCase();
+  if (v==='paid')              return 'color:#3fb950;background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.3)';
+  if (v.includes('partial'))   return 'color:#d29922;background:rgba(210,153,34,.12);border-color:rgba(210,153,34,.3)';
+  if (v.includes('sent'))      return 'color:#58a6ff;background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.3)';
+  if (v.includes('disputed'))  return 'color:#f85149;background:rgba(248,81,73,.12);border-color:rgba(248,81,73,.3)';
+  if (v.includes('not'))       return 'color:#8b949e;background:rgba(139,148,158,.08);border-color:rgba(139,148,158,.2)';
+  if (v==='wait')              return 'color:#bc8cff;background:rgba(188,140,255,.12);border-color:rgba(188,140,255,.3)';
+  return 'color:var(--muted)';
+}
+
+function invoiceCell(type, r) {
+  const opts = INVOICE_STATUSES.map(s =>
+    `<option value="${s}" ${r.invoiceStatus===s?'selected':''}>${s}</option>`
+  ).join('');
+  const style = invoiceStatusStyle(r.invoiceStatus);
+  return `<td onclick="event.stopPropagation()">
+    <select style="border:1px solid transparent;border-radius:20px;font-size:10px;font-weight:600;font-family:var(--font);cursor:pointer;outline:none;padding:2px 8px;${style}"
+      onchange="tableInvoiceUpdate('${type}','${r.id}',this.value,this)">
+      <option value="" ${!r.invoiceStatus?'selected':''}>— Invoice —</option>
+      ${opts}
+    </select>
+  </td>`;
+}
+
+function renderRows(type, rows) {
+  if (!rows.length) return `<tr><td colspan=\"11\"><div class=\"empty-state\"><div class=\"empty-icon\">🔍</div><div class=\"empty-title\">No records match filters</div></div></td></tr>`;
+  const rowMap = {
+    sea: r => {
+      const ctrs = containersForFile(r.fileNumber);
+      const ctrNos     = ctrs.length ? ctrs.map(c=>`<div class="td-mono" style="margin-bottom:3px">${c.containerNo||'—'}</div>`).join('') : '<span class="td-mono">—</span>';
+      const ctrSizes   = ctrs.length ? ctrs.map(c=>`<div class="td-dim" style="margin-bottom:3px">${c.size||'—'}</div>`).join('') : '—';
+      const ctrTrucks  = ctrs.length ? ctrs.map(c=>`<div class="td-mono" style="margin-bottom:3px">${c.truckNo||'—'}</div>`).join('') : '—';
+      const ctrStatuses= ctrs.length ? ctrs.map(c=>`<div style="margin-bottom:3px">${statusBadge(c.status||'TBA')}</div>`).join('') : statusBadge('TBA');
+      return `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td>${ctrNos}</td><td class="td-dim">${ctrSizes}</td><td class="td-mono">${ctrTrucks}</td><td class="td-mono">${r.bl||'—'}</td><td class="td-dim td-truncate">${r.shippingLine||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td>${ctrStatuses}</td><td class="td-dim">${fmtDate(r.docsRcvd)}</td>${invoiceCell('sea',r)}`;
+    },
+    air: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-mono">${r.airwaybill||'—'}</td><td class="td-dim">${r.airline||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td class="td-dim">${r.weight||'—'}</td><td>${statusBadge(r.status)}</td><td class="td-dim">${fmtDate(r.dateDelivered)}</td>${invoiceCell('air',r)}`,
+    road: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-mono">${r.bl||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td class="td-mono">${r.truckNo||'—'}</td><td>${statusBadge(r.status||'TBA')}</td><td class="td-dim">${fmtDate(r.dateOffload)}</td>${invoiceCell('road',r)}`,
+    clearing: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-mono">${r.bl||'—'}</td><td class="td-dim td-truncate">${r.shippingLine||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td>${statusBadge(r.status||'TBA')}</td><td class="td-dim">${fmtDate(r.docsRcvd)}</td>${invoiceCell('clearing',r)}`,
+  };
+  return rows.map(r=>`<tr onclick="openPanel('${type}','${r.id}')">${rowMap[type](r)}</tr>`).join('');
+}
+
+function rerenderTable(type) {
+  const el = document.getElementById(`tbody-${type}`);
+  if (el) el.innerHTML = renderRows(type, getFiltered(type));
+  const badge = document.getElementById('page-badge');
+  if (badge && S.page===type) badge.textContent = `${S[type].length} files`;
+}
+
+// ════════════════════════════════════════
+// DETAIL PANEL
+// ════════════════════════════════════════
+function openPanel(type, id) {
+  const record = S[type].find(r=>r.id===id);
+  if (!record) return;
+  document.getElementById('panel-title').textContent = record.fileNumber;
+  document.getElementById('panel-body').innerHTML = panelBody(type, record);
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('panel-overlay').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('panel-overlay').classList.remove('open');
+}
+
+const STATUS_COLORS = {
+  'Delivered':               'background:rgba(63,185,80,.18);border-color:rgba(63,185,80,.5);color:#3fb950',
+  'In Transit':              'background:rgba(88,166,255,.15);border-color:rgba(88,166,255,.4);color:#58a6ff',
+  'Awaiting Discharge':      'background:rgba(188,140,255,.15);border-color:rgba(188,140,255,.4);color:#bc8cff',
+  'Under Border Clearance':  'background:rgba(210,153,34,.15);border-color:rgba(210,153,34,.4);color:#d29922',
+  'Under Port Clearance':    'background:rgba(188,140,255,.15);border-color:rgba(188,140,255,.4);color:#bc8cff',
+  'Under Customs Clearance': 'background:rgba(227,179,65,.15);border-color:rgba(227,179,65,.4);color:#e3b341',
+  'Awaiting Clearance':      'background:rgba(210,153,34,.15);border-color:rgba(210,153,34,.4);color:#d29922',
+  'Awaiting Arrival':        'background:rgba(139,148,158,.1);border-color:rgba(139,148,158,.3);color:#8b949e',
+  'On Hold':                 'background:rgba(248,81,73,.15);border-color:rgba(248,81,73,.4);color:#f85149',
+  'TBA':                     'background:rgba(139,148,158,.1);border-color:rgba(139,148,158,.3);color:#8b949e',
+};
+
+function statusButtonsHTML(type, id, currentStatus) {
+  return STATUSES.map(s => {
+    const isCurrent = (currentStatus||'TBA') === s;
+    const col = STATUS_COLORS[s] || 'background:var(--surface);border-color:var(--border2);color:var(--text)';
+    const style = isCurrent ? col + ';font-weight:700;box-shadow:0 0 0 2px rgba(88,166,255,.35)' : 'background:var(--surface);border-color:var(--border2);color:var(--muted);font-weight:400';
+    return `<button onclick="quickStatusUpdate('${type}','${id}','${s}')" style="padding:8px 10px;border-radius:8px;border:1px solid;font-size:12px;cursor:pointer;text-align:center;transition:all .15s;${style}">${isCurrent ? '✓ ' : ''}${s}</button>`;
+  }).join('');
+}
+
+function panelBody(type, r) {
+  function containerTags(container, size) {
+    if (!container) return '—';
+    const nums  = container.split('|').map(s=>s.trim()).filter(Boolean);
+    const sizes = (size||'').split('|').map(s=>s.trim());
+    return nums.map((n,i) => {
+      const sz = sizes[i] ? ` <span style="opacity:.65">${sizes[i]}</span>` : '';
+      return `<span class="container-tag">📦 ${n}${sz}</span>`;
+    }).join('');
+  }
+
+  // File-level fields only (container fields are shown in container cards)
+  const fields = {
+    sea: [
+      ['Client', r.clientName||'—'],
+      ['BL Number', r.bl||'—'],
+      ['Shipping Line', r.shippingLine||'—'],
+      ['Goods', r.goods||'—'],
+      ['Port of Loading', r.pol||'—'],
+      ['Port of Discharge', r.pod||'—'],
+      ['Exporter', r.exporter||'—'],
+      ['Docs Received', fmtDate(r.docsRcvd)],
+      ['Remarks', r.remarks||'—'],
+      ['Invoice Status', r.invoiceStatus||'—'],
+    ],
+    air: [
+      ['Client', r.clientName||'—'],
+      ['Airwaybill', r.airwaybill||'—'],
+      ['Airline', r.airline||'—'],
+      ['Weight (KGS)', r.weight||'—'],
+      ['Port of Loading', r.pol||'—'],
+      ['Port of Discharge', r.pod||'—'],
+      ['RRA Reference', r.rra||'—'],
+      ['Goods Description', r.goods||'—'],
+      ['Date Delivered', fmtDate(r.dateDelivered)],
+      ['Docs Received', fmtDate(r.docsRcvd)],
+      ['Invoice Status', r.invoiceStatus||'—'],
+    ],
+    road: [
+      ['Client', r.clientName||'—'],
+      ['Containers', containerTags(r.container, null)],
+      ['BL Number', r.bl||'—'],
+      ['Weight (KGS)', r.weight||'—'],
+      ['Port of Loading', r.pol||'—'],
+      ['Port of Discharge', r.pod||'—'],
+      ['RRA Reference', r.rra||'—'],
+      ['Goods Description', r.goods||'—'],
+      ['Truck No.', r.truckNo||'—'],
+      ['Transporter', r.trucking||'—'],
+      ['Date of Offload', fmtDate(r.dateOffload)],
+      ['Docs Received', fmtDate(r.docsRcvd)],
+      ['Invoice Status', r.invoiceStatus||'—'],
+    ],
+    clearing: [
+      ['Client', r.clientName||'—'],
+      ['Containers', containerTags(r.container, r.size)],
+      ['BL', r.bl||'—'],
+      ['Shipping Line', r.shippingLine||'—'],
+      ['Goods Description', r.goods||'—'],
+      ['Weight (KGS)', r.weight||'—'],
+      ['Port of Loading', r.pol||'—'],
+      ['Destination', r.destination||'—'],
+      ['Exporter', r.exporter||'—'],
+      ['Loading Date', fmtDate(r.loadingDate)],
+      ['RRA Reference', r.rra||'—'],
+      ['Truck No.', r.truckNo||'—'],
+      ['Trucking Company', r.trucking||'—'],
+      ['Date Offloaded', fmtDate(r.dateOffload)],
+      ['Docs Received', fmtDate(r.docsRcvd)],
+      ['Remarks', r.remarks||'—'],
+      ['Invoice Status', r.invoiceStatus||'—'],
+    ],
+  };
+
+  const containerSection = type === 'sea' ? renderContainerSection(r.fileNumber) : '';
+
+  const rows = fields[type]||[];
+  const statusOpts = STATUSES.map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${s}</option>`).join('');
+  const invOpts = INVOICE_STATUSES.map(s=>`<option value="${s}" ${r.invoiceStatus===s?'selected':''}>${s}</option>`).join('');
+
+  return `
+  <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+    <span class="badge ${TYPE_META[type].badge}">${TYPE_META[type].icon} ${TYPE_META[type].label}</span>
+    ${invoiceBadge(r.invoiceStatus)}
+  </div>
+
+  <div class="panel-section">File Status</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px">
+    ${statusButtonsHTML(type, r.id, r.status)}
+  </div>
+
+  ${containerSection}
+  <div class="panel-section" style="display:flex;align-items:center;justify-content:space-between">
+    <span>File Details</span>
+    <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">tap a field to edit</span>
+  </div>
+  ${rows.map(([k,v])=>{
+    const fm = FIELD_MAP[k];
+    const editable = fm && !fm.readOnly;
+    return `<div class="detail-row">
+      <div class="detail-key">${k}</div>
+      <div class="detail-val${editable?' editable-val':''}" ${editable?`onclick="startInlineEdit(this,'${type}','${r.id}','${k}')" title="Click to edit"`:''}>${v}</div>
+    </div>`;
+  }).join('')}
+  <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-danger btn-sm" onclick="confirmDelete('${type}','${r.id}','${r.fileNumber}')">🗑 Delete</button>
+    <button class="btn btn-ghost btn-sm" onclick="closePanel()">Close</button>
+  </div>
+  ${renderAttachmentSection(type, r)}`;
+}
+
+async function quickStatusUpdate(type, id, status) {
+  if (!status) { toast('Please select a status','error'); return; }
+  const table = CONFIG.tables[type];
+  try {
+    await atUpdate(table, id, { 'Status': status });
+    const rec = S[type].find(r=>r.id===id);
+    if (rec) rec.status = status;
+
+    if (type === 'sea' && rec) {
+      const linked = containersForFile(rec.fileNumber);
+      for (const c of linked) {
+        await atUpdate(CONFIG.tables.containers, c.id, { 'Status': status });
+        c.status = status;
+      }
+    }
+
+    toast(`✅ Status → "${status}"`);
+    rerenderTable(type);
+    if (S.page === 'pipeline') renderContent();
+    openPanel(type, id);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function tableStatusUpdate(type, id, status) {
+  if (!status) return;
+  try {
+    await atUpdate(CONFIG.tables[type], id, { 'Status': status });
+    const rec = S[type].find(r => r.id === id);
+    if (rec) rec.status = status;
+    updateCounts();
+    rerenderTable(type);
+    toast(`✅ Status → "${status}"`);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function tableInvoiceUpdate(type, id, status, selectEl) {
+  if (!status) return;
+  try {
+    await atUpdate(CONFIG.tables[type], id, { 'Invoice Status': status });
+    const rec = S[type].find(r => r.id === id);
+    if (rec) rec.invoiceStatus = status;
+    updateCounts();
+    rerenderTable(type);
+    toast(`✅ Invoice → "${status}"`);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════
+// ADD / EDIT FORMS
+// ════════════════════════════════════════
+function openAddModal() {
+  const type = S.page;
+  if (!TYPE_META[type]) return;
+  document.getElementById('modal-title').textContent = `New ${TYPE_META[type].label} File`;
+  document.getElementById('modal-body').innerHTML = buildForm(type);
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-green" onclick="saveRecord('${type}')">Save File</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openEditModal(type, id) {
+  const record = S[type].find(r=>r.id===id);
+  if (!record) return;
+  document.getElementById('modal-title').textContent = `Edit ${record.fileNumber}`;
+  document.getElementById('modal-body').innerHTML = buildForm(type, record);
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-green" onclick="saveRecord('${type}','${id}')">Save Changes</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function clientDatalist() {
+  return `<datalist id="dl-clients">${S.clients.map(c=>`<option value="${c.name}">`).join('')}</datalist>`;
+}
+
+function clientFieldHTML(currentName='') {
+  return `<div style="display:flex;gap:6px;align-items:center">
+    ${clientDatalist()}
+    <input id="f-clientName" list="dl-clients" placeholder="Select or type client name" value="${currentName}" style="flex:1">
+    <button type="button" onclick="openNewClientModal()" title="Add new client"
+      style="flex-shrink:0;padding:0 10px;height:34px;border-radius:6px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">+ New</button>
+  </div>`;
+}
+
+function statusSelect(val) {
+  return `<select id="f-status"><option value="">-- Select --</option>${STATUSES.map(s=>`<option value="${s}" ${val===s?'selected':''}>${s}</option>`).join('')}</select>`;
+}
+
+function invoiceStatusSelect(val) {
+  const def = val || 'Wait';
+  return `<select id="f-invoiceStatus">${INVOICE_STATUSES.map(s=>`<option value="${s}" ${def===s?'selected':''}>${s}</option>`).join('')}</select>`;
+}
+
+// NEW: expanded container row with all container fields
+function addFormContainerRow() {
+  const row = document.createElement('div');
+  row.className = 'fc-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1.5fr 0.8fr 1.2fr 1fr 1fr auto;gap:8px;margin-bottom:10px;align-items:center;border:1px solid var(--border);padding:8px;border-radius:6px;background:var(--surface)';
+  row.innerHTML = `
+    <input class="fc-num" placeholder="Container No." style="">
+    <input class="fc-size" placeholder="Size" style="">
+    <select class="fc-status" style="padding:8px 10px;border-radius:6px;background:var(--card);border:1px solid var(--border2);color:var(--text);font-size:12px">
+      <option value="">— Status —</option>
+      ${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('')}
+    </select>
+    <input class="fc-truckno" placeholder="Truck No." style="">
+    <input class="fc-trucking" placeholder="Trucking Co." style="">
+    <button type="button" onclick="this.closest('.fc-row').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px">✕</button>
+  `;
+  
+  // Second row with labels and date pickers
+  const subRow = document.createElement('div');
+  subRow.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px';
+  
+  const rowIndex = document.querySelectorAll('.fc-row').length;
+  const dischargeId = `fc-discharge-${rowIndex}`;
+  const loadDateId = `fc-loaddate-${rowIndex}`;
+  const arrivalId = `fc-arrival-${rowIndex}`;
+  const offloadId = `fc-offload-${rowIndex}`;
+
+  subRow.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">Weight (KGS)</label>
+      <input class="fc-weight" placeholder="e.g. 1500" style="width:100%">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">Date of Discharge</label>
+      <div class="fc-discharge-wrapper"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">Container Loading Date</label>
+      <div class="fc-loaddate-wrapper"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">RRA Reference</label>
+      <input class="fc-rra" placeholder="e.g. RRA123" style="width:100%">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">Destination</label>
+      <input class="fc-destination" placeholder="e.g. Kigali" style="width:100%">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">Arrival at Magerwa</label>
+      <div class="fc-arrival-wrapper"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase">Date of Offload</label>
+      <div class="fc-offload-wrapper"></div>
+    </div>
+    <div></div>
+  `;
+  row.appendChild(subRow);
+  document.getElementById('fc-rows').appendChild(row);
+
+  // Insert calendar buttons into wrappers
+  const dischargeWrapper = subRow.querySelector('.fc-discharge-wrapper');
+  dischargeWrapper.innerHTML = formDateField(dischargeId, '');
+  
+  const loadDateWrapper = subRow.querySelector('.fc-loaddate-wrapper');
+  loadDateWrapper.innerHTML = formDateField(loadDateId, '');
+  
+  const arrivalWrapper = subRow.querySelector('.fc-arrival-wrapper');
+  arrivalWrapper.innerHTML = formDateField(arrivalId, '');
+  
+  const offloadWrapper = subRow.querySelector('.fc-offload-wrapper');
+  offloadWrapper.innerHTML = formDateField(offloadId, '');
+}
+
+function getFormContainers() {
+  return [...document.querySelectorAll('.fc-row')].map(row => {
+    const dischargeHidden = row.querySelector('.fc-discharge-wrapper input[type=hidden]');
+    const loadDateHidden = row.querySelector('.fc-loaddate-wrapper input[type=hidden]');
+    const arrivalHidden = row.querySelector('.fc-arrival-wrapper input[type=hidden]');
+    const offloadHidden = row.querySelector('.fc-offload-wrapper input[type=hidden]');
+
+    return {
+      num:      row.querySelector('.fc-num')?.value.trim(),
+      size:     row.querySelector('.fc-size')?.value.trim(),
+      status:   row.querySelector('.fc-status')?.value,
+      truckNo:  row.querySelector('.fc-truckno')?.value.trim(),
+      trucking: row.querySelector('.fc-trucking')?.value.trim(),
+      weight:   row.querySelector('.fc-weight')?.value.trim(),
+      dateDischarge:     dischargeHidden ? dischargeHidden.value : '',
+      containerLoadDate: loadDateHidden ? loadDateHidden.value : '',
+      rra:               row.querySelector('.fc-rra')?.value.trim(),
+      destination:       row.querySelector('.fc-destination')?.value.trim(),
+      arrivalMagerwa:    arrivalHidden ? arrivalHidden.value : '',
+      dateOffload:       offloadHidden ? offloadHidden.value : '',
+    };
+  }).filter(c => c.num);
+}
+
+// ════════════════════════════════════════
+// FORM DATE FIELD HELPER
+// ════════════════════════════════════════
+function formDateField(id, val) {
+  const display = val ? fmtDate(val) : '';
+  return `<div style="position:relative">
+    <input type="hidden" id="${id}" value="${val||''}">
+    <button type="button" id="${id}-btn"
+      style="width:100%;text-align:left;background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;color:${val?'var(--text)':'var(--muted)'};font-family:var(--font);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px"
+      onclick="openFormCalendar(event,'${id}')">
+      <span style="color:var(--muted)">📅</span>
+      <span id="${id}-lbl">${display||'Pick a date…'}</span>
+    </button>
+  </div>`;
+}
+
+function openFormCalendar(e, id) {
+  e.stopPropagation();
+  const btn = document.getElementById(id + '-btn');
+  const current = document.getElementById(id)?.value || '';
+  openCalendar(btn, current, (ds) => {
+    const inp = document.getElementById(id);
+    const lbl = document.getElementById(id + '-lbl');
+    const btn2 = document.getElementById(id + '-btn');
+    if (inp) inp.value = ds || '';
+    if (lbl) { lbl.textContent = ds ? fmtDate(ds) : 'Pick a date…'; lbl.style.color = ds ? 'var(--text)' : 'var(--muted)'; }
+    if (btn2) btn2.style.color = ds ? 'var(--text)' : 'var(--muted)';
+    if (btn2) btn2.querySelector('span:last-child').style.color = ds ? 'var(--text)' : 'var(--muted)';
+  });
+}
+
+function buildForm(type, r={}) {
+  const v = k => r[k]||'';
+  const raw = k => r.raw?.[k]||'';
+  const dl = clientDatalist();
+
+  const forms = {
+    sea: `
+      <div class="form-section">
+        <div class="form-section-title">File Information</div>
+        <div class="form-grid">
+          <div class="form-group"><label>File Number *</label><input id="f-fileNumber" placeholder="e.g. PICIS26050" value="${v('fileNumber')}"></div>
+          <div class="form-group"><label>Client *</label>${clientFieldHTML(v('clientName'))}</div>
+          <div class="form-group"><label>Docs Received</label>${formDateField('f-docsRcvd',raw('Docs Received')||v('docsRcvd'))}</div>
+          <div class="form-group"><label>Invoice Status</label>${invoiceStatusSelect(v('invoiceStatus'))}</div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Shipment Details</div>
+        <div class="form-grid">
+          <div class="form-group"><label>BL Number</label><input id="f-bl" value="${v('bl')}"></div>
+          <div class="form-group"><label>Shipping Line</label><input id="f-shippingLine" placeholder="e.g. MSC, HAPAG LLOYD" value="${v('shippingLine')}"></div>
+          <div class="form-group span2"><label>Description of Goods</label><input id="f-goods" placeholder="e.g. REFINED SOYA BEAN OIL" value="${v('goods')}"></div>
+          <div class="form-group"><label>Exporter</label><input id="f-exporter" value="${v('exporter')}"></div>
+          <div class="form-group"><label>Port of Loading</label><input id="f-pol" placeholder="e.g. MOMBASA" value="${v('pol')}"></div>
+          <div class="form-group"><label>Port of Discharge (POD)</label><input id="f-pod" placeholder="e.g. KIGALI" value="${v('pod')}"></div>
+          <div class="form-group span2"><label>Remarks</label><textarea id="f-remarks">${v('remarks')}</textarea></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Containers</div>
+        <div id="fc-rows"></div>
+        <button type="button" onclick="addFormContainerRow()" class="btn btn-ghost btn-sm" style="margin-top:4px">+ Add Container</button>
+        <p style="font-size:11px;color:var(--muted);margin-top:8px">Each container will have its own size, weight, dates, etc. stored in the Containers table.</p>
+      </div>`,
+
+    air: `
+      <div class="form-section">
+        <div class="form-section-title">File Information</div>
+        <div class="form-grid">
+          <div class="form-group"><label>File Number *</label><input id="f-fileNumber" placeholder="e.g. PICIAIR26015" value="${v('fileNumber')}"></div>
+          <div class="form-group"><label>Client *</label>${clientFieldHTML(v('clientName'))}</div>
+          <div class="form-group"><label>Docs Received</label>${formDateField('f-docsRcvd',raw('Docs Received')||v('docsRcvd'))}</div>
+          <div class="form-group"><label>Status</label>${statusSelect(v('status'))}</div>
+          <div class="form-group"><label>Invoice Status</label>${invoiceStatusSelect(v('invoiceStatus'))}</div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Shipment Details</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Airwaybill No.</label><input id="f-airwaybill" placeholder="e.g. 071-60300634" value="${v('airwaybill')}"></div>
+          <div class="form-group"><label>Airline</label><input id="f-airline" placeholder="e.g. RWANDAIR, ETHIOPIAN" value="${v('airline')}"></div>
+          <div class="form-group"><label>Weight (KGS)</label><input id="f-weight" type="text" inputmode="decimal" placeholder="e.g. 1500.5" value="${v('weight')}"></div>
+          <div class="form-group"><label>RRA Reference</label><input id="f-rra" value="${v('rra')}"></div>
+          <div class="form-group"><label>Port of Loading</label><input id="f-pol" placeholder="e.g. DUBAI" value="${v('pol')}"></div>
+          <div class="form-group"><label>Port of Discharge</label><input id="f-pod" placeholder="e.g. KIGALI" value="${v('pod')}"></div>
+          <div class="form-group span2"><label>Goods Description</label><input id="f-goods" placeholder="e.g. CONTROL VALVE BANK" value="${v('goods')}"></div>
+          <div class="form-group"><label>Date Delivered</label>${formDateField('f-dateDelivered',raw('Date Delivered')||v('dateDelivered'))}</div>
+        </div>
+      </div>`,
+
+    road: `
+      <div class="form-section">
+        <div class="form-section-title">File Information</div>
+        <div class="form-grid">
+          <div class="form-group"><label>File Number *</label><input id="f-fileNumber" placeholder="e.g. PICIR26025" value="${v('fileNumber')}"></div>
+          <div class="form-group"><label>Client *</label>${clientFieldHTML(v('clientName'))}</div>
+          <div class="form-group"><label>Docs Received</label>${formDateField('f-docsRcvd',raw('Docs Received')||v('docsRcvd'))}</div>
+          <div class="form-group"><label>Status</label>${statusSelect(v('status'))}</div>
+          <div class="form-group"><label>Invoice Status</label>${invoiceStatusSelect(v('invoiceStatus'))}</div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Shipment Details</div>
+        <div class="form-grid">
+          <div class="form-group"><label>BL Number</label><input id="f-bl" value="${v('bl')}"></div>
+          <div class="form-group"><label>Weight (KGS)</label><input id="f-weight" type="text" inputmode="decimal" placeholder="e.g. 1500.5" value="${v('weight')}"></div>
+          <div class="form-group"><label>RRA Reference</label><input id="f-rra" value="${v('rra')}"></div>
+          <div class="form-group"><label>Port of Loading</label><input id="f-pol" placeholder="e.g. DAR ES SALAAM" value="${v('pol')}"></div>
+          <div class="form-group"><label>Port of Discharge</label><input id="f-pod" placeholder="e.g. KIGALI" value="${v('pod')}"></div>
+          <div class="form-group span2"><label>Goods Description</label><input id="f-goods" value="${v('goods')}"></div>
+          <div class="form-group"><label>Truck No.</label><input id="f-truckNo" value="${v('truckNo')}"></div>
+          <div class="form-group"><label>Transporter</label><input id="f-trucking" value="${v('trucking')}"></div>
+          <div class="form-group"><label>Date of Offload</label>${formDateField('f-dateOffload',raw('Date of Offload')||v('dateOffload'))}</div>
+        </div>
+      </div>`,
+
+    clearing: `
+      <div class="form-section">
+        <div class="form-section-title">File Information</div>
+        <div class="form-grid">
+          <div class="form-group"><label>File Number *</label><input id="f-fileNumber" placeholder="e.g. PICIC26020" value="${v('fileNumber')}"></div>
+          <div class="form-group"><label>Client *</label>${clientFieldHTML(v('clientName'))}</div>
+          <div class="form-group"><label>Docs Received</label>${formDateField('f-docsRcvd',raw('Docs Received')||v('docsRcvd'))}</div>
+          <div class="form-group"><label>Status</label>${statusSelect(v('status'))}</div>
+          <div class="form-group"><label>Invoice Status</label>${invoiceStatusSelect(v('invoiceStatus'))}</div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Shipment Details</div>
+        <div class="form-grid">
+          <div class="form-group"><label>BL</label><input id="f-bl" value="${v('bl')}"></div>
+          <div class="form-group"><label>Shipping Line</label><input id="f-shippingLine" value="${v('shippingLine')}"></div>
+          <div class="form-group span2"><label>Description of Goods</label><input id="f-goods" value="${v('goods')}"></div>
+          <div class="form-group"><label>Weight (KGS)</label><input id="f-weight" type="text" inputmode="decimal" placeholder="e.g. 1500.5" value="${v('weight')}"></div>
+          <div class="form-group"><label>Exporter</label><input id="f-exporter" value="${v('exporter')}"></div>
+          <div class="form-group"><label>Port of Loading</label><input id="f-pol" value="${v('pol')}"></div>
+          <div class="form-group"><label>Destination</label><input id="f-destination" value="${v('destination')}"></div>
+          <div class="form-group"><label>Loading Date</label>${formDateField('f-loadingDate',raw('Container Loading Date')||v('loadingDate'))}</div>
+          <div class="form-group"><label>RRA Reference</label><input id="f-rra" value="${v('rra')}"></div>
+          <div class="form-group"><label>Truck No.</label><input id="f-truckNo" value="${v('truckNo')}"></div>
+          <div class="form-group"><label>Trucking Company</label><input id="f-trucking" value="${v('trucking')}"></div>
+          <div class="form-group"><label>Date Offloaded</label>${formDateField('f-dateOffload',raw('Date of Offload')||v('dateOffload'))}</div>
+          <div class="form-group span2"><label>Remarks</label><textarea id="f-remarks">${v('remarks')}</textarea></div>
+        </div>
+      </div>`,
+  };
+  return forms[type]||'';
+}
+
+// ════════════════════════════════════════
+// SAVE RECORD
+// ════════════════════════════════════════
+function g(id) { const el=document.getElementById(id); return el?el.value.trim():''; }
+
+function resolveClientId(name) {
+  if (!name) return undefined;
+  const q = name.toLowerCase().trim();
+  let c = S.clients.find(cl => (cl.name||'').toLowerCase().trim() === q);
+  if (!c) c = S.clients.find(cl => (cl.name||'').toLowerCase().trim().includes(q) || q.includes((cl.name||'').toLowerCase().trim()));
+  if (!c) {
+    console.warn(`Client not found: "${name}". Available:`, S.clients.map(cl=>cl.name));
+  }
+  return c ? [c.id] : undefined;
+}
+
+async function saveRecord(type, editId) {
+  const fileNumber = g('f-fileNumber');
+  const clientName = g('f-clientName');
+  if (!fileNumber) { toast('File number is required','error'); return; }
+  if (!clientName) { toast('Client is required','error'); return; }
+
+  let clientId = resolveClientId(clientName);
+  if (!clientId && editId) {
+    const existing = S[type]?.find(r => r.id === editId);
+    if (existing?.client?.length) clientId = existing.client;
+  }
+  const status = g('f-status') || 'TBA';
+  const invoiceStatus = g('f-invoiceStatus') || 'Wait';
+
+  const w = v => { const n = parseFloat(v); return isNaN(n) ? undefined : n; };
+
+  const fieldMaps = {
+    sea: () => ({
+      'File Number':           fileNumber,
+      'Client':                clientId,
+      'Docs Received':         g('f-docsRcvd')||undefined,
+      'BL Number':             g('f-bl')||undefined,
+      'Shipping Line':         g('f-shippingLine')||undefined,
+      'Description of Goods':  g('f-goods')||undefined,
+      'Exporter':              g('f-exporter')||undefined,
+      'Port of Loading':       g('f-pol')||undefined,
+      'POD':                   g('f-pod')||undefined,
+      'Remarks':               g('f-remarks')||undefined,
+      'Invoice Status':        invoiceStatus,
+      // Status is set by user after creation, not forced here
+    }),
+    air: () => ({
+      'File Number':       fileNumber,
+      'Client':            clientId,
+      'Docs Received':     g('f-docsRcvd')||undefined,
+      'Status':            status,
+      'Airwaybill':        g('f-airwaybill')||undefined,
+      'Airline':           g('f-airline')||undefined,
+      'Weight (KGS)':      w(g('f-weight')),
+      'RRA Reference':     g('f-rra')||undefined,
+      'Port of Loading':   g('f-pol')||undefined,
+      'POD':               g('f-pod')||undefined,
+      'Description of Goods': g('f-goods')||undefined,
+      'Date Delivered':    g('f-dateDelivered')||undefined,
+      'Invoice Status':  invoiceStatus,
+    }),
+    road: () => ({
+      'File Number':       fileNumber,
+      'Client':            clientId,
+      'Docs Received':     g('f-docsRcvd')||undefined,
+      'BL Number':         g('f-bl')||undefined,
+      'Weight (KGS)':      w(g('f-weight')),
+      'RRA Reference':     g('f-rra')||undefined,
+      'Port of Loading':   g('f-pol')||undefined,
+      'POD':               g('f-pod')||undefined,
+      'Description of Goods': g('f-goods')||undefined,
+      'Truck No':          g('f-truckNo')||undefined,
+      'Trucking Company':  g('f-trucking')||undefined,
+      'Date of Offload':   g('f-dateOffload')||undefined,
+      'Invoice Status':  invoiceStatus,
+    }),
+    clearing: () => ({
+      'File Number':           fileNumber,
+      'Client':                clientId,
+      'Docs Received':         g('f-docsRcvd')||undefined,
+      'BL':                     g('f-bl')||undefined,
+      'Shipping Line':         g('f-shippingLine')||undefined,
+      'Description of Goods':  g('f-goods')||undefined,
+      'Weight (KGS)':          w(g('f-weight')),
+      'Exporter':              g('f-exporter')||undefined,
+      'Port of Loading':       g('f-pol')||undefined,
+      'Destination':           g('f-destination')||undefined,
+      'Container Loading Date':g('f-loadingDate')||undefined,
+      'RRA Reference':         g('f-rra')||undefined,
+      'Truck No':              g('f-truckNo')||undefined,
+      'Trucking Company':      g('f-trucking')||undefined,
+      'Date of Offload':       g('f-dateOffload')||undefined,
+      'Remarks':               g('f-remarks')||undefined,
+      'Invoice Status':        invoiceStatus,
+    }),
+  };
+
+  const fields = fieldMaps[type]();
+  Object.keys(fields).forEach(k => {
+    if (fields[k] === undefined || fields[k] === '') delete fields[k];
+  });
+
+  const table = CONFIG.tables[type];
+  try {
+    if (editId) {
+      await atUpdate(table, editId, fields);
+      toast('✅ File updated');
+    } else {
+      await atCreate(table, fields);
+      // For sea freight, also create container rows with all container-specific fields
+      if (type === 'sea') {
+        const fileNumber = fields['File Number'];
+        const containers = getFormContainers();
+        for (const c of containers) {
+          const cf = {
+            'File Number': fileNumber,
+            'Container No': c.num,
+            'Size': c.size || undefined,
+            'Status': c.status || undefined,
+            'Truck No': c.truckNo || undefined,
+            'Trucking Company': c.trucking || undefined,
+            'Weight': c.weight || undefined,
+            'Date of Discharge': c.dateDischarge || undefined,
+            'Container loading date': c.containerLoadDate || undefined,
+            'RRA REFERENCE': c.rra || undefined,
+            'Destination': c.destination || undefined,
+            'Arrival at Magerwa': c.arrivalMagerwa || undefined,
+            'Date of Offload': c.dateOffload || undefined,
+          };
+          Object.keys(cf).forEach(k => { if (!cf[k]) delete cf[k]; });
+          await atCreate(CONFIG.tables.containers, cf);
+        }
+      }
+      toast('✅ File created');
+    }
+    closeModal();
+    await loadAll();
+    if (S.page !== 'pipeline') navigate(type);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════
+// DELETE
+// ════════════════════════════════════════
+let _confirmCb = null;
+
+function confirmDelete(type, id, fileNum) {
+  document.getElementById('confirm-title').textContent = `Delete ${fileNum}?`;
+  const containerWarning = type === 'sea' && containersForFile(fileNum).length
+    ? ` This will also delete ${containersForFile(fileNum).length} container record(s) linked to this file.`
+    : '';
+  document.getElementById('confirm-msg').textContent = `This will permanently delete the ${TYPE_META[type].label} file "${fileNum}" from Airtable. This cannot be undone.${containerWarning}`;
+  _confirmCb = async () => {
+    try {
+      if (type === 'sea') {
+        const linked = containersForFile(fileNum);
+        for (const c of linked) await atDelete(CONFIG.tables.containers, c.id);
+        S.containers = S.containers.filter(c => c.fileNumber.toLowerCase() !== fileNum.toLowerCase());
+      }
+      await atDelete(CONFIG.tables[type], id);
+      S[type] = S[type].filter(r=>r.id!==id);
+      updateCounts();
+      toast(`✅ ${fileNum} deleted`);
+      closePanel();
+      rerenderTable(type);
+      if (S.page==='pipeline') renderContent();
+    } catch(e) { toast('Error: '+e.message,'error'); }
+  };
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmCb = null;
+}
+
+async function runConfirm() {
+  const cb = _confirmCb;
+  closeConfirm();
+  if (cb) await cb();
+}
+
+// ════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════
+function toast(msg, type='success') {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  el.onclick = () => el.remove();
+  c.appendChild(el);
+  setTimeout(()=>el.remove(), type==='error'?8000:3500);
+}
+
+// ════════════════════════════════════════
+// CALENDAR (unchanged)
+// ════════════════════════════════════════
+const CAL = { el:null, year:0, month:0, selected:'', onPick:null };
+const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CAL_DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+function openCalendar(anchorEl, currentVal, onPick) {
+  closeCalendar();
+  const now    = currentVal ? new Date(currentVal + 'T00:00:00') : new Date();
+  CAL.year     = now.getFullYear();
+  CAL.month    = now.getMonth();
+  CAL.selected = currentVal || '';
+  CAL.onPick   = onPick;
+  const popup  = document.createElement('div');
+  popup.className = 'cal-popup';
+  popup.id = 'cal-popup';
+  popup.onclick = e => e.stopPropagation();
+  document.body.appendChild(popup);
+  CAL.el = popup;
+  renderCalendar();
+  const rect = anchorEl.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  popup.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+  if (spaceBelow > 290) popup.style.top  = (rect.bottom + 6) + 'px';
+  else                  popup.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+  setTimeout(() => document.addEventListener('click', closeCalendar, {once:true}), 10);
+}
+
+function renderCalendar() {
+  const popup = CAL.el; if (!popup) return;
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(CAL.year, CAL.month, 1).getDay();
+  const daysInMonth = new Date(CAL.year, CAL.month+1, 0).getDate();
+  const prevDays    = new Date(CAL.year, CAL.month, 0).getDate();
+  let cells = CAL_DAYS.map(d => `<div class="cal-day-name">${d}</div>`).join('');
+  for (let i=0; i<firstDay; i++) cells += `<div class="cal-day other-month">${prevDays-firstDay+1+i}</div>`;
+  for (let d=1; d<=daysInMonth; d++) {
+    const ds = `${CAL.year}-${String(CAL.month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dt = new Date(CAL.year, CAL.month, d);
+    const iT = dt.getTime()===today.getTime(), iS = ds===CAL.selected;
+    cells += `<div class="cal-day${iT?' today':''}${iS?' selected':''}" onclick="calPick('${ds}')">${d}</div>`;
+  }
+  const trail = (7-(firstDay+daysInMonth)%7)%7;
+  for (let d=1; d<=trail; d++) cells += `<div class="cal-day other-month">${d}</div>`;
+  popup.innerHTML = `
+    <div class="cal-header">
+      <button class="cal-nav" onclick="calNav(-1)">‹</button>
+      <div class="cal-month-label">${CAL_MONTHS[CAL.month]} ${CAL.year}</div>
+      <button class="cal-nav" onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-grid">${cells}</div>
+    <div class="cal-footer">
+      <button class="cal-btn" onclick="calPickToday()">Today</button>
+      <button class="cal-btn" onclick="calClear()">Clear</button>
+    </div>`;
+}
+function calNav(dir) { CAL.month += dir; if(CAL.month<0){CAL.month=11;CAL.year--;} if(CAL.month>11){CAL.month=0;CAL.year++;} renderCalendar(); }
+function calPick(ds) { CAL.selected=ds; if(CAL.onPick) CAL.onPick(ds); closeCalendar(); }
+function calPickToday() { const t=new Date(); calPick(`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`); }
+function calClear() { if(CAL.onPick) CAL.onPick(''); closeCalendar(); }
+function closeCalendar() { if(CAL.el){CAL.el.remove();CAL.el=null;} }
+
+// ════════════════════════════════════════
+// INLINE EDIT — FILE RECORDS
+// ════════════════════════════════════════
+const FIELD_MAP = {
+  'Client':               {isClient:true},
+  'BL Number':            {atField:'BL Number',           key:'bl'},
+  'BL':                   {atField:'BL Number',           key:'bl'},
+  'Shipping Line':        {atField:'Shipping Line',        key:'shippingLine'},
+  'Goods':                {atField:'Description of Goods', key:'goods'},
+  'Goods Description':    {atField:'Description of Goods', key:'goods'},
+  'Weight (KGS)':         {atField:'Weight (KGS)',         key:'weight', isNumber:true},
+  'Port of Loading':      {atField:'Port of Loading',      key:'pol'},
+  'Port of Discharge':    {atField:'POD',                  key:'pod'},
+  'Exporter':             {atField:'Exporter',             key:'exporter'},
+  'Date of Discharge':    {atField:'Date of Discharge',    key:'dateDischarge',    isDate:true},
+  'Container Loading Date':{atField:'Container Loading Date',key:'containerLoadDate',isDate:true},
+  'RRA Reference':        {atField:'RRA Reference',        key:'rra'},
+  'Destination':          {atField:'Destination',          key:'destination'},
+  'Truck No.':            {atField:'Truck No',             key:'truckNo'},
+  'Trucking Company':     {atField:'Trucking Company',     key:'trucking'},
+  'Transporter':          {atField:'Trucking Company',     key:'trucking'},
+  'Arrival at Magerwa':   {atField:'Arrival at Magerwa',   key:'arrivalMagerwa',   isDate:true},
+  'Date of Offload':      {atField:'Date of Offload',      key:'dateOffload',      isDate:true},
+  'Date Offloaded':       {atField:'Date of Offload',      key:'dateOffload',      isDate:true},
+  'Docs Received':        {atField:'Docs Received',        key:'docsRcvd',         isDate:true},
+  'Remarks':              {atField:'Remarks',              key:'remarks'},
+  'Airwaybill':           {atField:'Airwaybill',           key:'airwaybill'},
+  'Airline':              {atField:'Airline',              key:'airline'},
+  'Date Delivered':       {atField:'Date Delivered',       key:'dateDelivered',    isDate:true},
+  'Loading Date':         {atField:'Container Loading Date',key:'loadingDate',     isDate:true},
+  'Containers':           {readOnly:true},
+  'Invoice Status':       {readOnly:true},
+};
+
+function startInlineEdit(el, type, id, label) {
+  if (el.dataset.editing) return;
+  const fm = FIELD_MAP[label]; if (!fm || fm.readOnly) return;
+  el.dataset.editing = '1';
+  el.classList.add('editing');
+  const rec = S[type]?.find(r => r.id === id);
+  const currentRaw = rec?.[fm.key] || '';
+
+  if (fm.isClient) {
+    const opts = S.clients.map(c =>
+      `<option value="${c.name}" ${c.name === (rec?.clientName||'') ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+    el.innerHTML = `<div style="display:flex;gap:4px;align-items:center">
+      <select id="ile-sel" onclick="event.stopPropagation()" style="background:var(--surface);border:1px solid var(--blue);border-radius:5px;color:var(--text);font-size:12px;padding:3px 6px;max-width:140px">
+        <option value="">— select —</option>${opts}
+      </select>
+      <button class="inline-save" onclick="event.stopPropagation();saveInlineClient('${type}','${id}',this)">✓</button>
+      <button class="inline-cancel" onclick="event.stopPropagation();cancelInline(this,'${rec?.clientName||'—'}')">✕</button>
+      <button onclick="event.stopPropagation();openNewClientModal('ile-sel')" title="New client"
+        style="width:22px;height:22px;border-radius:5px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">+</button>
+    </div>`;
+    setTimeout(()=>document.getElementById('ile-sel')?.focus(),20);
+    return;
+  }
+
+  if (fm.isDate) {
+    el.innerHTML = `<span style="color:var(--blue);font-size:11px;cursor:pointer">📅 ${currentRaw ? fmtDate(currentRaw) : 'Pick date…'}</span>`;
+    openCalendar(el, currentRaw ? currentRaw.substring(0,10) : '', async (ds) => {
+      delete el.dataset.editing; el.classList.remove('editing');
+      el.innerHTML = ds ? fmtDate(ds) : '—';
+      try {
+        await atUpdate(CONFIG.tables[type], id, {[fm.atField]: ds||null});
+        if (rec) rec[fm.key] = ds;
+        toast('✅ Saved'); rerenderTable(type);
+      } catch(e) { toast('Error: '+e.message,'error'); }
+    });
+    document.addEventListener('click', ()=>{ delete el.dataset.editing; el.classList.remove('editing'); }, {once:true});
+    return;
+  }
+
+  el.innerHTML = `<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">
+    <input class="inline-input" id="ile-inp" type="text" value="${currentRaw}" onclick="event.stopPropagation()" style="max-width:160px">
+    <button class="inline-save" onclick="event.stopPropagation();saveInlineText('${type}','${id}','${fm.atField}','${fm.key}',this)">✓</button>
+    <button class="inline-cancel" onclick="event.stopPropagation();cancelInline(this,'${currentRaw||'—'}')">✕</button>
+  </div>`;
+  setTimeout(()=>{ const i=document.getElementById('ile-inp'); if(i){i.focus();i.select();} }, 20);
+}
+
+function cancelInline(btn, original) {
+  const cell = btn.closest('.editable-val');
+  if (!cell) return;
+  delete cell.dataset.editing; cell.classList.remove('editing');
+  cell.innerHTML = original || '—';
+}
+
+async function saveInlineText(type, id, atField, key, btn) {
+  const cell = btn.closest('.editable-val');
+  const inp  = cell?.querySelector('input');
+  if (!inp) return;
+  delete cell.dataset.editing; cell.classList.remove('editing');
+  const raw = inp.value.trim();
+  const fm = Object.values(FIELD_MAP).find(m => m.atField === atField);
+  let sendVal;
+  if (fm?.isNumber) {
+    const n = parseFloat(raw);
+    sendVal = isNaN(n) ? null : n;
+  } else {
+    sendVal = raw || null;
+  }
+  cell.innerHTML = raw || '—';
+  try {
+    await atUpdate(CONFIG.tables[type], id, {[atField]: sendVal});
+    const rec = S[type]?.find(r=>r.id===id);
+    if (rec) rec[key] = raw;
+    toast('✅ Saved'); rerenderTable(type);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function saveInlineClient(type, id, btn) {
+  const cell = btn.closest('.editable-val');
+  const sel  = cell?.querySelector('select');
+  if (!sel) return;
+  delete cell.dataset.editing; cell.classList.remove('editing');
+  const name = sel.value.trim();
+  const cr   = S.clients.find(c=>c.name===name);
+  cell.innerHTML = name || '—';
+  try {
+    await atUpdate(CONFIG.tables[type], id, {'Client': cr ? [cr.id] : []});
+    const rec = S[type]?.find(r=>r.id===id);
+    if (rec) { rec.clientName = name; rec.client = cr ? [cr.id] : []; }
+    toast('✅ Saved'); rerenderTable(type);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════
+// CONTAINER INLINE EDIT
+// ════════════════════════════════════════
+function toggleContainerExpand(cid) {
+  const card = document.getElementById('ctr-' + cid);
+  if (card) card.classList.toggle('expanded');
+}
+
+function startCtrInlineEdit(el, cid, atField, key, fileNumber, mode) {
+  if (el.dataset.editing) return;
+  el.dataset.editing = '1';
+  const c = S.containers.find(c => c.id === cid);
+  const currentRaw = c?.[key] || '';
+
+  if (mode === 'date') {
+    el.innerHTML = `<span style="color:var(--blue);font-size:11px;cursor:pointer">📅 ${currentRaw ? fmtDate(currentRaw) : 'Pick date…'}</span>`;
+    openCalendar(el, currentRaw ? currentRaw.substring(0,10) : '', async (ds) => {
+      delete el.dataset.editing;
+      el.innerHTML = ds ? fmtDate(ds) : '—';
+      try {
+        await atUpdate(CONFIG.tables.containers, cid, {[atField]: ds||null});
+        if (c) c[key] = ds;
+        _refreshCtrHeader(cid, c);
+        toast('✅ Saved'); rerenderTable('sea');
+      } catch(e) { toast('Error: '+e.message,'error'); }
+    });
+    document.addEventListener('click', ()=>{ delete el.dataset.editing; }, {once:true});
+    return;
+  }
+
+  el.innerHTML = `<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">
+    <input class="inline-input" id="ctr-inp-${cid}" type="text" value="${currentRaw}" onclick="event.stopPropagation()" style="max-width:160px">
+    <button class="inline-save" onclick="event.stopPropagation();saveCtrText('${cid}','${atField}','${key}','${fileNumber}',this)">✓</button>
+    <button class="inline-cancel" onclick="event.stopPropagation();cancelCtrInline(this,'${currentRaw||'—'}')">✕</button>
+  </div>`;
+  setTimeout(()=>{ const i=document.getElementById('ctr-inp-'+cid); if(i){i.focus();i.select();} }, 20);
+}
+
+function cancelCtrInline(btn, original) {
+  const cell = btn.closest('.ctr-field-val');
+  if (!cell) return;
+  delete cell.dataset.editing;
+  cell.innerHTML = original || '—';
+}
+
+async function saveCtrText(cid, atField, key, fileNumber, btn) {
+  const cell = btn.closest('.ctr-field-val');
+  const inp  = cell?.querySelector('input');
+  if (!inp) return;
+  const val = inp.value.trim();
+  delete cell.dataset.editing;
+  cell.innerHTML = val || '—';
+  const c = S.containers.find(c => c.id === cid);
+  try {
+    await atUpdate(CONFIG.tables.containers, cid, {[atField]: val||null});
+    if (c) { c[key] = val; _refreshCtrHeader(cid, c); }
+    toast('✅ Saved'); rerenderTable('sea');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+function _refreshCtrHeader(cid, c) {
+  const card = document.getElementById('ctr-' + cid);
+  if (!card || !c) return;
+  const summaryEl = card.querySelector('.ctr-header .ctr-no')?.nextElementSibling;
+  if (!summaryEl) return;
+  summaryEl.innerHTML = (c.truckNo||c.trucking)
+    ? `🚛 ${[c.truckNo,c.trucking].filter(Boolean).join(' · ')}`
+    : '';
+}
+
+// ════════════════════════════════════════
+// NEW CLIENT
+// ════════════════════════════════════════
+function openNewClientModal(selectId) {
+  document.getElementById('modal-title').textContent = 'Add New Client';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-grid">
+      <div class="form-group span2">
+        <label>Client Name *</label>
+        <input id="nc-name" placeholder="e.g. KIGALI CEMENT LTD" autofocus>
+      </div>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-green" onclick="createNewClient('${selectId||''}')">Create Client</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('nc-name')?.focus(), 80);
+}
+
+async function createNewClient(selectId) {
+  const name = document.getElementById('nc-name')?.value.trim();
+  if (!name) { toast('Client name is required','error'); return; }
+  if (S.clients.find(c=>c.name.toLowerCase()===name.toLowerCase())) {
+    toast('A client with that name already exists','error'); return;
+  }
+  try {
+    const created = await atCreate(CONFIG.tables.clients, { 'Name': name });
+    const newClient = { id: created.id, name, ...created.fields };
+    S.clients.push(newClient);
+    S.clients.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    toast(`✅ Client "${name}" created`);
+    closeModal();
+    if (selectId) {
+      const sel = document.getElementById(selectId);
+      if (sel) {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name; opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+    const inp = document.getElementById('f-clientName');
+    if (inp) {
+      inp.value = name;
+      const dl = document.getElementById('dl-clients');
+      if (dl) { const o=document.createElement('option'); o.value=name; dl.appendChild(o); }
+    }
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════
+// ATTACHMENTS (unchanged)
+// ════════════════════════════════════════
+function attFileIcon(type) {
+  if (!type) return '📄';
+  if (type.startsWith('image/'))       return '🖼️';
+  if (type === 'application/pdf')      return '📕';
+  if (type.includes('word') || type.includes('document')) return '📝';
+  if (type.includes('sheet') || type.includes('excel'))   return '📊';
+  if (type.includes('zip') || type.includes('compressed')) return '🗜️';
+  return '📄';
+}
+
+function fmtFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
+function renderAttachmentSection(type, r) {
+  const atts = r.attachments || [];
+  const items = atts.length ? atts.map(a => {
+    const isPdf = a.type === 'application/pdf' || (a.filename||'').toLowerCase().endsWith('.pdf');
+    return `
+    <div class="att-item">
+      <div class="att-icon">${attFileIcon(a.type)}</div>
+      <div class="att-info">
+        <div class="att-name" title="${a.filename}">${a.filename}</div>
+        <div class="att-meta">${fmtFileSize(a.size)}${a.type ? ' · '+a.type.split('/')[1]?.toUpperCase() : ''}</div>
+      </div>
+      <div class="att-actions">
+        ${isPdf ? `<button class="att-btn" onclick="openPdfPreview('${encodeURIComponent(a.url)}','${encodeURIComponent(a.filename)}')" title="Preview">👁</button>` : ''}
+        <a class="att-btn" href="${a.url}" target="_blank" download="${a.filename}" title="Download">⬇</a>
+        <button class="att-btn danger" onclick="deleteAttachment('${type}','${r.id}','${a.id}')" title="Remove">✕</button>
+      </div>
+    </div>`;
+  }).join('') : `<div style="font-size:12px;color:var(--muted);padding:4px 0">No attachments yet.</div>`;
+
+  return `
+  <div class="panel-section" style="display:flex;align-items:center;justify-content:space-between;margin-top:20px">
+    <span>Attachments (${atts.length})</span>
+  </div>
+  <div id="att-section-${r.id}">
+    <div class="att-grid">${items}</div>
+    <label class="att-upload-btn" id="att-upload-label-${r.id}">
+      <input type="file" multiple style="display:none" onchange="uploadAttachments('${type}','${r.id}',this)">
+      <span>📎</span><span>Add attachment</span>
+    </label>
+  </div>`;
+}
+
+async function uploadAttachments(type, id, input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const label = document.getElementById(`att-upload-label-${id}`);
+  const setLabel = txt => { if (label) label.querySelector('span:last-child').textContent = txt; };
+  if (label) label.classList.add('att-uploading');
+  setLabel('Uploading…');
+
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (files.length > 1) setLabel(`Uploading ${i+1}/${files.length}…`);
+
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      const relay = await fetch('https://tmpfiles.org/api/v1/upload', { method:'POST', body: fd });
+      if (!relay.ok) throw new Error(`Relay upload failed: HTTP ${relay.status}`);
+      const relayData = await relay.json();
+      const rawUrl = relayData?.data?.url || '';
+      const publicUrl = rawUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+      if (!publicUrl) throw new Error('No URL returned from relay');
+
+      const rec = S[type].find(r => r.id === id);
+      const existing = (rec?.attachments || []).map(a => ({ url: a.url, filename: a.filename }));
+      await atUpdate(CONFIG.tables[type], id, {
+        'Attachment': [...existing, { url: publicUrl, filename: file.name }]
+      });
+    }
+    toast(`✅ ${files.length} file${files.length>1?'s':''} uploaded`);
+    await refreshRecord(type, id);
+  } catch(e) {
+    console.error('[Upload error]', e);
+    toast('Upload error: ' + e.message, 'error');
+  } finally {
+    if (label) label.classList.remove('att-uploading');
+    setLabel('Add attachment');
+    input.value = '';
+  }
+}
+
+async function deleteAttachment(type, id, attId) {
+  const rec = S[type].find(r => r.id === id);
+  if (!rec) return;
+  const remaining = (rec.attachments || []).filter(a => a.id !== attId).map(a => ({ url: a.url }));
+  try {
+    await atUpdate(CONFIG.tables[type], id, { 'Attachment': remaining });
+    toast('✅ Attachment removed');
+    await refreshRecord(type, id);
+  } catch(e) { toast('Error: '+e.message, 'error'); }
+}
+
+async function refreshRecord(type, id) {
+  try {
+    const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(CONFIG.tables[type])}/${id}`, { headers: headers() });
+    const d = await r.json();
+    const normFns = { sea: normSea, air: normAir, road: normRoad, clearing: normClearing };
+    const updated = normFns[type](d);
+    const idx = S[type].findIndex(r => r.id === id);
+    if (idx !== -1) S[type][idx] = updated;
+    const section = document.getElementById(`att-section-${id}`);
+    if (section) {
+      const atts = updated.attachments || [];
+      const items = atts.length ? atts.map(a => {
+        const isPdf = a.type === 'application/pdf' || (a.filename||'').toLowerCase().endsWith('.pdf');
+        return `
+        <div class="att-item">
+          <div class="att-icon">${attFileIcon(a.type)}</div>
+          <div class="att-info">
+            <div class="att-name" title="${a.filename}">${a.filename}</div>
+            <div class="att-meta">${fmtFileSize(a.size)}${a.type ? ' · '+a.type.split('/')[1]?.toUpperCase() : ''}</div>
+          </div>
+          <div class="att-actions">
+            ${isPdf ? `<button class="att-btn" onclick="openPdfPreview('${encodeURIComponent(a.url)}','${encodeURIComponent(a.filename)}')" title="Preview">👁</button>` : ''}
+            <a class="att-btn" href="${a.url}" target="_blank" download="${a.filename}" title="Download">⬇</a>
+            <button class="att-btn danger" onclick="deleteAttachment('${type}','${id}','${a.id}')" title="Remove">✕</button>
+          </div>
+        </div>`;
+      }).join('') : `<div style="font-size:12px;color:var(--muted);padding:4px 0">No attachments yet.</div>`;
+      section.innerHTML = `<div class="att-grid">${items}</div>
+        <label class="att-upload-btn" id="att-upload-label-${id}">
+          <input type="file" multiple style="display:none" onchange="uploadAttachments('${type}','${id}',this)">
+          <span>📎</span><span>Add attachment</span>
+        </label>`;
+      const header = section.previousElementSibling;
+      if (header) { const span = header.querySelector('span'); if (span) span.textContent = `Attachments (${atts.length})`; }
+    }
+  } catch(e) { console.error('refreshRecord error:', e); }
+}
+
+function openPdfPreview(encodedUrl, encodedFilename) {
+  const url      = decodeURIComponent(encodedUrl);
+  const filename = decodeURIComponent(encodedFilename);
+  document.getElementById('pdf-frame').src    = url;
+  document.getElementById('pdf-filename').textContent = filename;
+  document.getElementById('pdf-download').href = url;
+  document.getElementById('pdf-download').download = filename;
+  document.getElementById('pdf-overlay').classList.add('open');
+}
+
+function closePdfPreview(e) {
+  if (e && e.target !== document.getElementById('pdf-overlay')) return;
+  document.getElementById('pdf-overlay').classList.remove('open');
+  document.getElementById('pdf-frame').src = '';
+}
+
+// ════════════════════════════════════════
+// CONTAINERS TABLE CRUD
+// ════════════════════════════════════════
+function containerCardHTML(c, fileNumber) {
+  const statusOpts = `<option value="">— Status —</option>${STATUSES.map(s=>`<option value="${s}" ${c.status===s?'selected':''}>${s}</option>`).join('')}`;
+  const cid = c.id;
+  return `
+    <div class="ctr-card" id="ctr-${cid}">
+      <div class="ctr-header" onclick="toggleContainerExpand('${cid}')">
+        <span class="ctr-chevron">›</span>
+        <div style="flex:1;min-width:0">
+          <div class="ctr-no">📦 ${c.containerNo||'—'}${c.size ? ` <span style="font-weight:400;color:var(--muted);font-size:11px">${c.size}</span>` : ''}</div>
+          ${c.truckNo||c.trucking ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">🚛 ${[c.truckNo,c.trucking].filter(Boolean).join(' · ')}</div>` : ''}
+        </div>
+        <select style="width:130px;flex:none;padding:5px 7px;border-radius:6px;background:var(--card);border:1px solid var(--border2);color:var(--text);font-size:12px"
+          onclick="event.stopPropagation()"
+          onchange="updateContainerStatus('${cid}',this.value,'${fileNumber}')">
+          ${statusOpts}
+        </select>
+        <button onclick="event.stopPropagation();deleteContainer('${cid}','${fileNumber}')" class="container-row-remove" title="Remove">✕</button>
+      </div>
+      <div class="ctr-expand" id="ctr-expand-${cid}">
+        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Tap a field to edit</div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Size</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Size','size','${fileNumber}','text')">${c.size||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Weight (KGS)</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Weight','weight','${fileNumber}','text')">${c.weight||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Date of Discharge</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Date of Discharge','dateDischarge','${fileNumber}','date')">${fmtDate(c.dateDischarge)||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Container Loading Date</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Container loading date','containerLoadDate','${fileNumber}','date')">${fmtDate(c.containerLoadDate)||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">RRA Reference</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','RRA REFERENCE','rra','${fileNumber}','text')">${c.rra||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Destination</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Destination','destination','${fileNumber}','text')">${c.destination||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Truck No.</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Truck No','truckNo','${fileNumber}','text')">${c.truckNo||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Trucking Company</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Trucking Company','trucking','${fileNumber}','text')">${c.trucking||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Arrival at Magerwa</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Arrival at Magerwa','arrivalMagerwa','${fileNumber}','date')">${fmtDate(c.arrivalMagerwa)||'—'}</div>
+        </div>
+        <div class="ctr-field-row">
+          <div class="ctr-field-key">Date of Offload</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Date of Offload','dateOffload','${fileNumber}','date')">${fmtDate(c.dateOffload)||'—'}</div>
+        </div>
+        ${c.notes ? `<div class="ctr-field-row"><div class="ctr-field-key">Notes</div><div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Notes','notes','${fileNumber}','text')">${c.notes}</div></div>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderContainerSection(fileNumber) {
+  const ctrs = containersForFile(fileNumber);
+  return `
+  <div class="panel-section" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Containers (${ctrs.length})</span>
+    <button class="add-container-btn" onclick="openAddContainerModal('${fileNumber}')">+ Add</button>
+  </div>
+  <div id="container-section">
+    ${ctrs.length ? ctrs.map(c => containerCardHTML(c, fileNumber)).join('') : `<div style="color:var(--muted);font-size:12px;padding:8px 0">No containers yet — click + Add to add one.</div>`}
+  </div>`;
+}
+
+async function updateContainerStatus(containerId, newStatus, fileNumber) {
+  try {
+    await atUpdate(CONFIG.tables.containers, containerId, { 'Status': newStatus });
+    const c = S.containers.find(c => c.id === containerId);
+    if (c) c.status = newStatus;
+    rerenderContainerSection(fileNumber);
+    rerenderTable('sea');
+    toast('✅ Status updated');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function deleteContainer(containerId, fileNumber) {
+  try {
+    await atDelete(CONFIG.tables.containers, containerId);
+    S.containers = S.containers.filter(c => c.id !== containerId);
+    rerenderContainerSection(fileNumber);
+    rerenderTable('sea');
+    toast('✅ Container removed');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+function rerenderContainerSection(fileNumber) {
+  const el = document.getElementById('container-section');
+  if (!el) return;
+  const ctrs = containersForFile(fileNumber);
+  el.innerHTML = ctrs.length
+    ? ctrs.map(c => containerCardHTML(c, fileNumber)).join('')
+    : `<div style="color:var(--muted);font-size:12px;padding:8px 0">No containers yet — click + Add to add one.</div>`;
+  const header = el.previousElementSibling;
+  if (header) { const span = header.querySelector('span'); if (span) span.textContent = `Containers (${ctrs.length})`; }
+}
+
+function openEditContainerModal(containerId, fileNumber) {
+  const c = S.containers.find(c => c.id === containerId);
+  if (!c) return;
+  document.getElementById('modal-title').textContent = `Edit Container — ${c.containerNo||containerId}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-grid">
+      <div class="form-group span2"><label>Container No. *</label><input id="ec-num" value="${c.containerNo||''}"></div>
+      <div class="form-group"><label>Size</label><input id="ec-size" placeholder="e.g. 40HC, 20FT" value="${c.size||''}"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="ec-status">
+          <option value="">— Select Status —</option>
+          ${STATUSES.map(s=>`<option value="${s}" ${c.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Weight (KGS)</label><input id="ec-weight" placeholder="e.g. 1500" value="${c.weight||''}"></div>
+      <div class="form-group"><label>Truck No.</label><input id="ec-truckno" placeholder="e.g. RAB 123A" value="${c.truckNo||''}"></div>
+      <div class="form-group"><label>Trucking Company</label><input id="ec-trucking" placeholder="e.g. Sonarwa" value="${c.trucking||''}"></div>
+      <div class="form-group"><label>Date of Discharge</label>${formDateField('ec-discharge', c.dateDischarge)}</div>
+      <div class="form-group"><label>Container Loading Date</label>${formDateField('ec-loaddate', c.containerLoadDate)}</div>
+      <div class="form-group"><label>RRA Reference</label><input id="ec-rra" value="${c.rra||''}"></div>
+      <div class="form-group"><label>Destination</label><input id="ec-destination" value="${c.destination||''}"></div>
+      <div class="form-group"><label>Arrival at Magerwa</label>${formDateField('ec-arrival', c.arrivalMagerwa)}</div>
+      <div class="form-group"><label>Date of Offload</label>${formDateField('ec-offload', c.dateOffload)}</div>
+      <div class="form-group span2"><label>Notes</label><input id="ec-notes" placeholder="Optional notes" value="${c.notes||''}"></div>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-green" onclick="saveEditContainer('${containerId}','${fileNumber}')">Save Changes</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function saveEditContainer(containerId, fileNumber) {
+  const num = document.getElementById('ec-num')?.value.trim();
+  if (!num) { toast('Container number is required','error'); return; }
+  const fields = {
+    'Container No':      num,
+    'Size':              document.getElementById('ec-size')?.value.trim() || null,
+    'Status':            document.getElementById('ec-status')?.value || null,
+    'Weight':            document.getElementById('ec-weight')?.value.trim() || null,
+    'Truck No':          document.getElementById('ec-truckno')?.value.trim() || null,
+    'Trucking Company':  document.getElementById('ec-trucking')?.value.trim() || null,
+    'Date of Discharge': document.getElementById('ec-discharge')?.value || null,
+    'Container loading date': document.getElementById('ec-loaddate')?.value || null,
+    'RRA REFERENCE':     document.getElementById('ec-rra')?.value.trim() || null,
+    'Destination':       document.getElementById('ec-destination')?.value.trim() || null,
+    'Arrival at Magerwa': document.getElementById('ec-arrival')?.value || null,
+    'Date of Offload':   document.getElementById('ec-offload')?.value || null,
+    'Notes':             document.getElementById('ec-notes')?.value.trim() || null,
+  };
+  Object.keys(fields).forEach(k => { if (fields[k] === null) delete fields[k]; });
+  try {
+    await atUpdate(CONFIG.tables.containers, containerId, fields);
+    const c = S.containers.find(c => c.id === containerId);
+    if (c) {
+      c.containerNo = fields['Container No'];
+      c.size        = fields['Size'];
+      c.status      = fields['Status'];
+      c.weight      = fields['Weight'];
+      c.truckNo     = fields['Truck No'];
+      c.trucking    = fields['Trucking Company'];
+      c.dateDischarge = fields['Date of Discharge'];
+      c.containerLoadDate = fields['Container loading date'];
+      c.rra         = fields['RRA REFERENCE'];
+      c.destination = fields['Destination'];
+      c.arrivalMagerwa = fields['Arrival at Magerwa'];
+      c.dateOffload = fields['Date of Offload'];
+      c.notes       = fields['Notes'];
+    }
+    closeModal();
+    rerenderContainerSection(fileNumber);
+    rerenderTable('sea');
+    toast('✅ Container updated');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+function openAddContainerModal(fileNumber) {
+  document.getElementById('modal-title').textContent = `Add Container — ${fileNumber}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-grid">
+      <div class="form-group span2"><label>Container No. *</label><input id="nc-num" placeholder="e.g. MSMU3810378"></div>
+      <div class="form-group"><label>Size</label><input id="nc-size" placeholder="e.g. 40HC, 20FT"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="nc-status">
+          <option value="">— Select Status —</option>
+          ${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Weight (KGS)</label><input id="nc-weight" placeholder="e.g. 1500"></div>
+      <div class="form-group"><label>Truck No.</label><input id="nc-truckno" placeholder="e.g. RAB 123A"></div>
+      <div class="form-group"><label>Trucking Company</label><input id="nc-trucking" placeholder="e.g. Sonarwa"></div>
+      <div class="form-group"><label>Date of Discharge</label>${formDateField('nc-discharge', '')}</div>
+      <div class="form-group"><label>Container Loading Date</label>${formDateField('nc-loaddate', '')}</div>
+      <div class="form-group"><label>RRA Reference</label><input id="nc-rra"></div>
+      <div class="form-group"><label>Destination</label><input id="nc-destination"></div>
+      <div class="form-group"><label>Arrival at Magerwa</label>${formDateField('nc-arrival', '')}</div>
+      <div class="form-group"><label>Date of Offload</label>${formDateField('nc-offload', '')}</div>
+      <div class="form-group span2"><label>Notes</label><input id="nc-notes" placeholder="Optional notes"></div>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-green" onclick="saveNewContainer('${fileNumber}')">Add Container</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function saveNewContainer(fileNumber) {
+  const num = document.getElementById('nc-num')?.value.trim();
+  if (!num) { toast('Container number is required','error'); return; }
+  const fields = {
+    'File Number':       fileNumber,
+    'Container No':      num,
+    'Size':              document.getElementById('nc-size')?.value.trim() || undefined,
+    'Status':            document.getElementById('nc-status')?.value || undefined,
+    'Weight':            document.getElementById('nc-weight')?.value.trim() || undefined,
+    'Truck No':          document.getElementById('nc-truckno')?.value.trim() || undefined,
+    'Trucking Company':  document.getElementById('nc-trucking')?.value.trim() || undefined,
+    'Date of Discharge': document.getElementById('nc-discharge')?.value || undefined,
+    'Container loading date': document.getElementById('nc-loaddate')?.value || undefined,
+    'RRA REFERENCE':     document.getElementById('nc-rra')?.value.trim() || undefined,
+    'Destination':       document.getElementById('nc-destination')?.value.trim() || undefined,
+    'Arrival at Magerwa': document.getElementById('nc-arrival')?.value || undefined,
+    'Date of Offload':   document.getElementById('nc-offload')?.value || undefined,
+    'Notes':             document.getElementById('nc-notes')?.value.trim() || undefined,
+  };
+  Object.keys(fields).forEach(k => { if (!fields[k]) delete fields[k]; });
+  try {
+    const created = await atCreate(CONFIG.tables.containers, fields);
+    S.containers.push({
+      id:          created.id,
+      fileNumber,
+      containerNo: created.fields['Container No']||'',
+      size:        created.fields['Size']||'',
+      status:      created.fields['Status']||'',
+      weight:      created.fields['Weight']||'',
+      truckNo:     created.fields['Truck No']||'',
+      trucking:    created.fields['Trucking Company']||'',
+      dateDischarge: created.fields['Date of Discharge']||'',
+      containerLoadDate: created.fields['Container loading date']||'',
+      rra:         created.fields['RRA REFERENCE']||'',
+      destination: created.fields['Destination']||'',
+      arrivalMagerwa: created.fields['Arrival at Magerwa']||'',
+      dateOffload: created.fields['Date of Offload']||'',
+      notes:       created.fields['Notes']||'',
+      raw:         created.fields,
+    });
+    closeModal();
+    rerenderContainerSection(fileNumber);
+    rerenderTable('sea');
+    toast('✅ Container added');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════
+// MERGE DUPLICATES (unchanged)
+// ════════════════════════════════════════
+function findDuplicateGroups() {
+  const allTypes = ['sea','air','road','clearing'];
+  const groups = [];
+  allTypes.forEach(type => {
+    const byFile = {};
+    S[type].forEach(r => {
+      const key = (r.fileNumber||'').trim().toLowerCase();
+      if (!key) return;
+      if (!byFile[key]) byFile[key] = [];
+      byFile[key].push(r);
+    });
+    Object.entries(byFile).forEach(([key, records]) => {
+      if (records.length > 1) groups.push({ type, fileNumber: records[0].fileNumber, records });
+    });
+  });
+  return groups;
+}
+
+function renderMergePage() {
+  const groups = findDuplicateGroups();
+  const badge = document.getElementById('cnt-merge');
+  if (badge) { badge.textContent = groups.length; badge.style.display = groups.length ? '' : 'none'; }
+
+  if (!groups.length) return `
+  <div style="max-width:720px;margin:40px auto;text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">✅</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:8px">No duplicates found</div>
+    <div style="color:var(--muted);font-size:13px">All file numbers across Sea, Air, Road and Clearing are unique.</div>
+  </div>`;
+
+  return `
+  <div style="max-width:800px;margin:0 auto">
+    <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start">
+      <span style="font-size:18px">🔀</span>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:3px">Found ${groups.length} file${groups.length>1?'s':''} with duplicate records</div>
+        <div style="color:var(--muted2);font-size:12px">Each group below has multiple records with the same file number. Merging combines all containers into one record and deletes the extras. The first record is kept as the base — all other fields are preserved from it.</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px" id="merge-groups">
+      ${groups.map((g,i) => renderMergeGroup(g,i)).join('')}
+    </div>
+    <div style="margin-top:20px;padding:14px 0;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center">
+      <button class="btn btn-green" onclick="mergeAll()" style="background:rgba(168,85,247,0.15);border-color:rgba(168,85,247,0.3);color:#a855f7">🔀 Merge All ${groups.length} Group${groups.length>1?'s':''}</button>
+      <span style="color:var(--muted);font-size:12px">This will update Airtable — it cannot be undone</span>
+    </div>
+  </div>`;
+}
+
+function renderMergeGroup(g, i) {
+  const typeColors = { sea:'var(--sea)', air:'var(--air)', road:'var(--road)', clearing:'var(--clear)' };
+  const typeLabels = { sea:'🚢 Sea', air:'✈️ Air', road:'🚛 Road', clearing:'🏛️ Clearing' };
+  const seen = new Set();
+  const newContainers = [];
+  g.records.forEach(r => {
+    const c = (r.container||'').trim();
+    if (!c || seen.has(c.toLowerCase())) return;
+    seen.add(c.toLowerCase());
+    newContainers.push({ containerNo: c, size: r.size||'' });
+  });
+
+  return `
+  <div class="card" style="padding:0;overflow:hidden" id="merge-group-${i}">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <span style="width:8px;height:8px;border-radius:50%;background:${typeColors[g.type]};flex-shrink:0"></span>
+      <span style="font-weight:700;font-family:var(--mono)">${g.fileNumber}</span>
+      <span style="color:var(--muted);font-size:12px">${typeLabels[g.type]}</span>
+      <span style="margin-left:auto;background:rgba(239,68,68,0.1);color:var(--red);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px">${g.records.length} records → 1</span>
+    </div>
+    <div style="padding:12px 16px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Duplicate freight records</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${g.records.map((r,j) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface);border-radius:6px;font-size:12px">
+          <span style="color:var(--muted);font-size:11px;width:16px">${j===0?'✓':'✕'}</span>
+          <span class="td-mono" style="color:var(--muted2)">${r.container||'(no container)'}</span>
+          ${r.size ? `<span style="color:var(--muted);font-size:11px">${r.size}</span>` : ''}
+          ${j===0 ? `<span style="margin-left:auto;font-size:10px;color:var(--green)">kept as base file</span>` : `<span style="margin-left:auto;font-size:10px;color:var(--red)">will be deleted</span>`}
+        </div>`).join('')}
+      </div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Containers table — ${newContainers.length} row${newContainers.length!==1?'s':''} will be created</div>
+      ${newContainers.length ? `<div style="display:flex;flex-direction:column;gap:4px">
+        ${newContainers.map(c => `
+        <div style="padding:6px 12px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:6px;font-family:var(--mono);font-size:12px;display:flex;gap:10px">
+          <span>📦 ${c.containerNo}</span>
+          ${c.size ? `<span style="color:var(--muted)">${c.size}</span>` : ''}
+        </div>`).join('')}
+      </div>` : `<div style="padding:8px 12px;background:rgba(239,168,68,0.08);border:1px solid rgba(239,168,68,0.3);border-radius:6px;font-size:12px;color:#f59e0b">⚠️ No container data found on these records. Merge will only delete duplicates — add containers manually from the file panel after merging.</div>`}
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+      <button class="btn btn-sm" style="background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.25);color:#a855f7;font-size:12px" onclick="mergeSingle(${i})">🔀 Merge this group</button>
+      <button class="btn btn-ghost btn-sm" onclick="skipGroup(${i})" style="font-size:12px">Skip</button>
+    </div>
+  </div>`;
+}
+
+async function mergeSingle(i) {
+  const groups = findDuplicateGroups();
+  const g = groups[i];
+  if (!g) return;
+  const el = document.getElementById(`merge-group-${i}`);
+  if (el) el.style.opacity = '0.5';
+  try {
+    await doMerge(g);
+    toast(`✅ Merged ${g.fileNumber} — containers saved to Containers table`);
+    await loadAll();
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    if (el) el.style.opacity = '1';
+  }
+}
+
+async function mergeAll() {
+  const groups = findDuplicateGroups();
+  if (!groups.length) { toast('No duplicates to merge'); return; }
+  let ok = 0, fail = 0;
+  for (const g of groups) {
+    try { await doMerge(g); ok++; }
+    catch(e) { fail++; console.error('Merge failed for', g.fileNumber, e); }
+  }
+  toast(fail ? `⚠️ Merged ${ok}, failed ${fail}` : `✅ Merged all ${ok} group${ok>1?'s':''} successfully`);
+  await loadAll();
+}
+
+async function doMerge(g) {
+  const table = CONFIG.tables[g.type];
+  const base  = g.records[0];
+  const rest  = g.records.slice(1);
+
+  const seen = new Set();
+  const toCreate = [];
+  for (const r of g.records) {
+    const c = (r.container||'').trim();
+    if (!c || seen.has(c.toLowerCase())) continue;
+    seen.add(c.toLowerCase());
+    const fields = { 'File Number': g.fileNumber, 'Container No': c };
+    if (r.size && r.size.trim()) fields['Size'] = r.size.trim();
+    toCreate.push(fields);
+  }
+
+  const existing = containersForFile(g.fileNumber);
+  const existingNums = new Set(existing.map(c => (c.containerNo||'').toLowerCase()));
+  const finalCreate = toCreate.filter(f => !existingNums.has((f['Container No']||'').toLowerCase()));
+
+  for (const fields of finalCreate) {
+    await atCreate(CONFIG.tables.containers, fields);
+  }
+
+  for (const r of rest) await atDelete(table, r.id);
+}
+
+// ════════════════════════════════════════
+// THEME TOGGLE
+// ════════════════════════════════════════
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('pic-theme', isLight ? 'light' : 'dark');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
+}
+(function() {
+  if (localStorage.getItem('pic-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = '🌙';
+    });
+  }
+})();
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>
