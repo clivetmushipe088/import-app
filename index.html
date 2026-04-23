@@ -466,12 +466,6 @@ body.light select option { background: #ffffff; }
     <span>Disputed</span>
     <span class="count" id="cnt-inv-disputed">0</span>
   </div>
-  <div class="nav-section">Tools</div>
-  <div class="nav-item" data-page="merge" onclick="navigate('merge')">
-    <div class="nav-dot" style="background:var(--purple)"></div>
-    <span>Merge Duplicates</span>
-    <span class="count" id="cnt-merge" style="display:none"></span>
-  </div>
   <div class="sidebar-footer">
     <div class="footer-label">Last sync</div>
     <div class="footer-val" id="last-sync">—</div>
@@ -614,6 +608,9 @@ const TYPE_META = {
 // ════════════════════════════════════════
 // AIRTABLE API
 // ════════════════════════════════════════
+// ════════════════════════════════════════
+// AIRTABLE API
+// ════════════════════════════════════════
 const headers = () => ({
   'Authorization': `Bearer ${CONFIG.apiKey}`,
   'Content-Type': 'application/json'
@@ -641,6 +638,23 @@ async function atCreate(table, fields) {
   return d;
 }
 
+// Batch create up to 10 records per request (Airtable max)
+async function atCreateBatch(table, fieldsArray) {
+  if (!fieldsArray.length) return [];
+  const results = [];
+  for (let i = 0; i < fieldsArray.length; i += 10) {
+    const chunk = fieldsArray.slice(i, i + 10);
+    const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}`, {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ records: chunk.map(fields => ({ fields })) })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
+    results.push(...d.records);
+  }
+  return results;
+}
+
 async function atUpdate(table, id, fields) {
   const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}/${id}`, {
     method:'PATCH', headers:headers(), body:JSON.stringify({fields})
@@ -648,6 +662,35 @@ async function atUpdate(table, id, fields) {
   const d = await r.json();
   if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
   return d;
+}
+
+// Batch update up to 10 records per request
+async function atUpdateBatch(table, updates) {
+  // updates = [{ id, fields }, ...]
+  if (!updates.length) return;
+  for (let i = 0; i < updates.length; i += 10) {
+    const chunk = updates.slice(i, i + 10);
+    const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}`, {
+      method: 'PATCH', headers: headers(),
+      body: JSON.stringify({ records: chunk.map(({ id, fields }) => ({ id, fields })) })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
+  }
+}
+
+// Batch delete up to 10 records per request
+async function atDeleteBatch(table, ids) {
+  if (!ids.length) return;
+  for (let i = 0; i < ids.length; i += 10) {
+    const chunk = ids.slice(i, i + 10);
+    const params = chunk.map(id => `records[]=${id}`).join('&');
+    const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(table)}?${params}`, {
+      method: 'DELETE', headers: headers()
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`);
+  }
 }
 
 async function atDelete(table, id) {
@@ -846,9 +889,6 @@ function updateCounts() {
   document.getElementById('cnt-inv-partial').textContent = all.filter(r=>r.invoiceStatus==='Partially Paid').length;
   document.getElementById('cnt-inv-paid').textContent  = all.filter(r=>r.invoiceStatus==='Paid').length;
   document.getElementById('cnt-inv-disputed').textContent = all.filter(r=>r.invoiceStatus==='Disputed').length;
-  const dupCount = findDuplicateGroups().length;
-  const mergeBadge = document.getElementById('cnt-merge');
-  if (mergeBadge) { mergeBadge.textContent = dupCount; mergeBadge.style.display = dupCount ? '' : 'none'; }
 }
 
 // ════════════════════════════════════════
@@ -859,7 +899,7 @@ function navigate(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page===page));
   const meta = TYPE_META[page];
   const invoicePages = { 'inv-needs':'Needs Invoicing', 'inv-sent':'Invoice Sent', 'inv-partial':'Partially Paid', 'inv-paid':'Paid', 'inv-disputed':'Disputed' };
-  document.getElementById('page-title').textContent = meta ? meta.label : (invoicePages[page] || (page==='merge' ? 'Merge Duplicates' : 'Pipeline'));
+  document.getElementById('page-title').textContent = meta ? meta.label : (invoicePages[page] || 'Pipeline');
   document.getElementById('add-btn').style.display = meta ? '' : 'none';
   renderContent();
 }
@@ -873,7 +913,6 @@ function renderContent() {
     air:         ()=>renderFreight('air'),
     road:        ()=>renderFreight('road'),
     clearing:    ()=>renderFreight('clearing'),
-    merge:       renderMergePage,
     'inv-needs': ()=>renderInvoicePage('Not Invoiced'),
     'inv-sent':  ()=>renderInvoicePage('Invoice Sent'),
     'inv-partial':()=>renderInvoicePage('Partially Paid'),
@@ -1346,17 +1385,24 @@ async function quickStatusUpdate(type, id, status) {
   if (!status) { toast('Please select a status','error'); return; }
   const table = CONFIG.tables[type];
   try {
-    await atUpdate(table, id, { 'Status': status });
     const rec = S[type].find(r=>r.id===id);
-    if (rec) rec.status = status;
+
+    // Build all updates: the file record + any linked containers (sea only)
+    const fileUpdate = atUpdate(table, id, { 'Status': status });
+    let containerBatch = Promise.resolve();
 
     if (type === 'sea' && rec) {
       const linked = containersForFile(rec.fileNumber);
-      for (const c of linked) {
-        await atUpdate(CONFIG.tables.containers, c.id, { 'Status': status });
-        c.status = status;
+      if (linked.length) {
+        containerBatch = atUpdateBatch(CONFIG.tables.containers,
+          linked.map(c => ({ id: c.id, fields: { 'Status': status } }))
+        );
+        linked.forEach(c => { c.status = status; }); // optimistic
       }
     }
+
+    await Promise.all([fileUpdate, containerBatch]); // fire both in parallel
+    if (rec) rec.status = status; // optimistic update
 
     toast(`✅ Status → "${status}"`);
     rerenderTable(type);
@@ -1693,19 +1739,6 @@ function buildForm(type, r={}) {
 // ════════════════════════════════════════
 // SAVE RECORD
 // ════════════════════════════════════════
-function g(id) { const el=document.getElementById(id); return el?el.value.trim():''; }
-
-function resolveClientId(name) {
-  if (!name) return undefined;
-  const q = name.toLowerCase().trim();
-  let c = S.clients.find(cl => (cl.name||'').toLowerCase().trim() === q);
-  if (!c) c = S.clients.find(cl => (cl.name||'').toLowerCase().trim().includes(q) || q.includes((cl.name||'').toLowerCase().trim()));
-  if (!c) {
-    console.warn(`Client not found: "${name}". Available:`, S.clients.map(cl=>cl.name));
-  }
-  return c ? [c.id] : undefined;
-}
-
 async function saveRecord(type, editId) {
   const fileNumber = g('f-fileNumber');
   const clientName = g('f-clientName');
@@ -1719,7 +1752,6 @@ async function saveRecord(type, editId) {
   }
   const status = g('f-status') || 'TBA';
   const invoiceStatus = g('f-invoiceStatus') || 'Wait';
-
   const w = v => { const n = parseFloat(v); return isNaN(n) ? undefined : n; };
 
   const fieldMaps = {
@@ -1735,11 +1767,9 @@ async function saveRecord(type, editId) {
       'POD':                   g('f-pod')||undefined,
       'Remarks':               g('f-remarks')||undefined,
       'Invoice Status':        invoiceStatus,
-      // Status is set by user after creation, not forced here
     }),
     air: () => ({
-      'File Number':       fileNumber,
-      'Client':            clientId,
+      'File Number':       fileNumber, 'Client': clientId,
       'Docs Received':     g('f-docsRcvd')||undefined,
       'Status':            status,
       'Airwaybill':        g('f-airwaybill')||undefined,
@@ -1750,11 +1780,10 @@ async function saveRecord(type, editId) {
       'POD':               g('f-pod')||undefined,
       'Description of Goods': g('f-goods')||undefined,
       'Date Delivered':    g('f-dateDelivered')||undefined,
-      'Invoice Status':  invoiceStatus,
+      'Invoice Status':    invoiceStatus,
     }),
     road: () => ({
-      'File Number':       fileNumber,
-      'Client':            clientId,
+      'File Number':       fileNumber, 'Client': clientId,
       'Docs Received':     g('f-docsRcvd')||undefined,
       'BL Number':         g('f-bl')||undefined,
       'Weight (KGS)':      w(g('f-weight')),
@@ -1765,13 +1794,12 @@ async function saveRecord(type, editId) {
       'Truck No':          g('f-truckNo')||undefined,
       'Trucking Company':  g('f-trucking')||undefined,
       'Date of Offload':   g('f-dateOffload')||undefined,
-      'Invoice Status':  invoiceStatus,
+      'Invoice Status':    invoiceStatus,
     }),
     clearing: () => ({
-      'File Number':           fileNumber,
-      'Client':                clientId,
+      'File Number':           fileNumber, 'Client': clientId,
       'Docs Received':         g('f-docsRcvd')||undefined,
-      'BL':                     g('f-bl')||undefined,
+      'BL':                    g('f-bl')||undefined,
       'Shipping Line':         g('f-shippingLine')||undefined,
       'Description of Goods':  g('f-goods')||undefined,
       'Weight (KGS)':          w(g('f-weight')),
@@ -1789,46 +1817,70 @@ async function saveRecord(type, editId) {
   };
 
   const fields = fieldMaps[type]();
-  Object.keys(fields).forEach(k => {
-    if (fields[k] === undefined || fields[k] === '') delete fields[k];
-  });
-
+  Object.keys(fields).forEach(k => { if (fields[k] === undefined || fields[k] === '') delete fields[k]; });
   const table = CONFIG.tables[type];
+
   try {
     if (editId) {
-      await atUpdate(table, editId, fields);
+      const updated = await atUpdate(table, editId, fields);
+      // Optimistic local update — no loadAll() needed
+      const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing };
+      const idx = S[type].findIndex(r => r.id === editId);
+      if (idx !== -1) S[type][idx] = normFns[type](updated);
       toast('✅ File updated');
     } else {
-      await atCreate(table, fields);
-      // For sea freight, also create container rows with all container-specific fields
+      const created = await atCreate(table, fields);
+      // For sea freight, batch-create all container rows in as few calls as possible
       if (type === 'sea') {
-        const fileNumber = fields['File Number'];
         const containers = getFormContainers();
-        for (const c of containers) {
-          const cf = {
-            'File Number': fileNumber,
-            'Container No': c.num,
-            'Size': c.size || undefined,
-            'Status': c.status || undefined,
-            'Truck No': c.truckNo || undefined,
-            'Trucking Company': c.trucking || undefined,
-            'Weight': c.weight || undefined,
-            'Date of Discharge': c.dateDischarge || undefined,
-            'Container loading date': c.containerLoadDate || undefined,
-            'RRA REFERENCE': c.rra || undefined,
-            'Destination': c.destination || undefined,
-            'Arrival at Magerwa': c.arrivalMagerwa || undefined,
-            'Date of Offload': c.dateOffload || undefined,
-          };
-          Object.keys(cf).forEach(k => { if (!cf[k]) delete cf[k]; });
-          await atCreate(CONFIG.tables.containers, cf);
+        if (containers.length) {
+          const containerFields = containers.map(c => ({
+            'File Number':            fileNumber,
+            'Container No':           c.num,
+            ...(c.size            && { 'Size': c.size }),
+            ...(c.status          && { 'Status': c.status }),
+            ...(c.truckNo         && { 'Truck No': c.truckNo }),
+            ...(c.trucking        && { 'Trucking Company': c.trucking }),
+            ...(c.weight          && { 'Weight': c.weight }),
+            ...(c.dateDischarge   && { 'Date of Discharge': c.dateDischarge }),
+            ...(c.containerLoadDate && { 'Container loading date': c.containerLoadDate }),
+            ...(c.rra             && { 'RRA REFERENCE': c.rra }),
+            ...(c.destination     && { 'Destination': c.destination }),
+            ...(c.arrivalMagerwa  && { 'Arrival at Magerwa': c.arrivalMagerwa }),
+            ...(c.dateOffload     && { 'Date of Offload': c.dateOffload }),
+          }));
+          // ONE batch call instead of N individual creates
+          const createdCtrs = await atCreateBatch(CONFIG.tables.containers, containerFields);
+          createdCtrs.forEach(r => {
+            S.containers.push({
+              id: r.id, fileNumber,
+              containerNo: r.fields['Container No']||'',
+              size: r.fields['Size']||'', status: r.fields['Status']||'',
+              weight: r.fields['Weight']||'', truckNo: r.fields['Truck No']||'',
+              trucking: r.fields['Trucking Company']||'',
+              dateDischarge: r.fields['Date of Discharge']||'',
+              containerLoadDate: r.fields['Container loading date']||'',
+              rra: r.fields['RRA REFERENCE']||'', destination: r.fields['Destination']||'',
+              arrivalMagerwa: r.fields['Arrival at Magerwa']||'',
+              dateOffload: r.fields['Date of Offload']||'', notes: '', raw: r.fields,
+            });
+          });
         }
+        // Push the new sea record into local state
+        const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing };
+        S[type].push(normFns[type](created));
+      } else {
+        const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing };
+        S[type].push(normFns[type](created));
       }
       toast('✅ File created');
     }
     closeModal();
-    await loadAll();
-    if (S.page !== 'pipeline') navigate(type);
+    updateCounts();
+    rerenderTable(type);
+    if (S.page === 'pipeline') renderContent();
+    // Navigate only if needed — no loadAll()
+    if (S.page !== type && S.page !== 'pipeline') navigate(type);
   } catch(e) { toast('Error: '+e.message,'error'); }
 }
 
@@ -2614,160 +2666,6 @@ async function saveNewContainer(fileNumber) {
     rerenderTable('sea');
     toast('✅ Container added');
   } catch(e) { toast('Error: '+e.message,'error'); }
-}
-
-// ════════════════════════════════════════
-// MERGE DUPLICATES (unchanged)
-// ════════════════════════════════════════
-function findDuplicateGroups() {
-  const allTypes = ['sea','air','road','clearing'];
-  const groups = [];
-  allTypes.forEach(type => {
-    const byFile = {};
-    S[type].forEach(r => {
-      const key = (r.fileNumber||'').trim().toLowerCase();
-      if (!key) return;
-      if (!byFile[key]) byFile[key] = [];
-      byFile[key].push(r);
-    });
-    Object.entries(byFile).forEach(([key, records]) => {
-      if (records.length > 1) groups.push({ type, fileNumber: records[0].fileNumber, records });
-    });
-  });
-  return groups;
-}
-
-function renderMergePage() {
-  const groups = findDuplicateGroups();
-  const badge = document.getElementById('cnt-merge');
-  if (badge) { badge.textContent = groups.length; badge.style.display = groups.length ? '' : 'none'; }
-
-  if (!groups.length) return `
-  <div style="max-width:720px;margin:40px auto;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">✅</div>
-    <div style="font-size:18px;font-weight:700;margin-bottom:8px">No duplicates found</div>
-    <div style="color:var(--muted);font-size:13px">All file numbers across Sea, Air, Road and Clearing are unique.</div>
-  </div>`;
-
-  return `
-  <div style="max-width:800px;margin:0 auto">
-    <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start">
-      <span style="font-size:18px">🔀</span>
-      <div>
-        <div style="font-weight:700;font-size:13px;margin-bottom:3px">Found ${groups.length} file${groups.length>1?'s':''} with duplicate records</div>
-        <div style="color:var(--muted2);font-size:12px">Each group below has multiple records with the same file number. Merging combines all containers into one record and deletes the extras. The first record is kept as the base — all other fields are preserved from it.</div>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px" id="merge-groups">
-      ${groups.map((g,i) => renderMergeGroup(g,i)).join('')}
-    </div>
-    <div style="margin-top:20px;padding:14px 0;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center">
-      <button class="btn btn-green" onclick="mergeAll()" style="background:rgba(168,85,247,0.15);border-color:rgba(168,85,247,0.3);color:#a855f7">🔀 Merge All ${groups.length} Group${groups.length>1?'s':''}</button>
-      <span style="color:var(--muted);font-size:12px">This will update Airtable — it cannot be undone</span>
-    </div>
-  </div>`;
-}
-
-function renderMergeGroup(g, i) {
-  const typeColors = { sea:'var(--sea)', air:'var(--air)', road:'var(--road)', clearing:'var(--clear)' };
-  const typeLabels = { sea:'🚢 Sea', air:'✈️ Air', road:'🚛 Road', clearing:'🏛️ Clearing' };
-  const seen = new Set();
-  const newContainers = [];
-  g.records.forEach(r => {
-    const c = (r.container||'').trim();
-    if (!c || seen.has(c.toLowerCase())) return;
-    seen.add(c.toLowerCase());
-    newContainers.push({ containerNo: c, size: r.size||'' });
-  });
-
-  return `
-  <div class="card" style="padding:0;overflow:hidden" id="merge-group-${i}">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
-      <span style="width:8px;height:8px;border-radius:50%;background:${typeColors[g.type]};flex-shrink:0"></span>
-      <span style="font-weight:700;font-family:var(--mono)">${g.fileNumber}</span>
-      <span style="color:var(--muted);font-size:12px">${typeLabels[g.type]}</span>
-      <span style="margin-left:auto;background:rgba(239,68,68,0.1);color:var(--red);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px">${g.records.length} records → 1</span>
-    </div>
-    <div style="padding:12px 16px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Duplicate freight records</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${g.records.map((r,j) => `
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface);border-radius:6px;font-size:12px">
-          <span style="color:var(--muted);font-size:11px;width:16px">${j===0?'✓':'✕'}</span>
-          <span class="td-mono" style="color:var(--muted2)">${r.container||'(no container)'}</span>
-          ${r.size ? `<span style="color:var(--muted);font-size:11px">${r.size}</span>` : ''}
-          ${j===0 ? `<span style="margin-left:auto;font-size:10px;color:var(--green)">kept as base file</span>` : `<span style="margin-left:auto;font-size:10px;color:var(--red)">will be deleted</span>`}
-        </div>`).join('')}
-      </div>
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Containers table — ${newContainers.length} row${newContainers.length!==1?'s':''} will be created</div>
-      ${newContainers.length ? `<div style="display:flex;flex-direction:column;gap:4px">
-        ${newContainers.map(c => `
-        <div style="padding:6px 12px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:6px;font-family:var(--mono);font-size:12px;display:flex;gap:10px">
-          <span>📦 ${c.containerNo}</span>
-          ${c.size ? `<span style="color:var(--muted)">${c.size}</span>` : ''}
-        </div>`).join('')}
-      </div>` : `<div style="padding:8px 12px;background:rgba(239,168,68,0.08);border:1px solid rgba(239,168,68,0.3);border-radius:6px;font-size:12px;color:#f59e0b">⚠️ No container data found on these records. Merge will only delete duplicates — add containers manually from the file panel after merging.</div>`}
-    </div>
-    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
-      <button class="btn btn-sm" style="background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.25);color:#a855f7;font-size:12px" onclick="mergeSingle(${i})">🔀 Merge this group</button>
-      <button class="btn btn-ghost btn-sm" onclick="skipGroup(${i})" style="font-size:12px">Skip</button>
-    </div>
-  </div>`;
-}
-
-async function mergeSingle(i) {
-  const groups = findDuplicateGroups();
-  const g = groups[i];
-  if (!g) return;
-  const el = document.getElementById(`merge-group-${i}`);
-  if (el) el.style.opacity = '0.5';
-  try {
-    await doMerge(g);
-    toast(`✅ Merged ${g.fileNumber} — containers saved to Containers table`);
-    await loadAll();
-  } catch(e) {
-    toast('Error: ' + e.message, 'error');
-    if (el) el.style.opacity = '1';
-  }
-}
-
-async function mergeAll() {
-  const groups = findDuplicateGroups();
-  if (!groups.length) { toast('No duplicates to merge'); return; }
-  let ok = 0, fail = 0;
-  for (const g of groups) {
-    try { await doMerge(g); ok++; }
-    catch(e) { fail++; console.error('Merge failed for', g.fileNumber, e); }
-  }
-  toast(fail ? `⚠️ Merged ${ok}, failed ${fail}` : `✅ Merged all ${ok} group${ok>1?'s':''} successfully`);
-  await loadAll();
-}
-
-async function doMerge(g) {
-  const table = CONFIG.tables[g.type];
-  const base  = g.records[0];
-  const rest  = g.records.slice(1);
-
-  const seen = new Set();
-  const toCreate = [];
-  for (const r of g.records) {
-    const c = (r.container||'').trim();
-    if (!c || seen.has(c.toLowerCase())) continue;
-    seen.add(c.toLowerCase());
-    const fields = { 'File Number': g.fileNumber, 'Container No': c };
-    if (r.size && r.size.trim()) fields['Size'] = r.size.trim();
-    toCreate.push(fields);
-  }
-
-  const existing = containersForFile(g.fileNumber);
-  const existingNums = new Set(existing.map(c => (c.containerNo||'').toLowerCase()));
-  const finalCreate = toCreate.filter(f => !existingNums.has((f['Container No']||'').toLowerCase()));
-
-  for (const fields of finalCreate) {
-    await atCreate(CONFIG.tables.containers, fields);
-  }
-
-  for (const r of rest) await atDelete(table, r.id);
 }
 
 // ════════════════════════════════════════
