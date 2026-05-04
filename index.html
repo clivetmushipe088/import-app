@@ -466,6 +466,12 @@ body.light select option { background: #ffffff; }
     <span>Disputed</span>
     <span class="count" id="cnt-inv-disputed">0</span>
   </div>
+  <div class="nav-section">Finance</div>
+  <div class="nav-item" data-page="recovered-funds" onclick="navigate('recovered-funds')">
+    <div class="nav-dot" style="background:var(--teal)"></div>
+    <span>Recovered Funds</span>
+    <span class="count" id="cnt-recovered">0</span>
+  </div>
   <div class="sidebar-footer">
     <div class="footer-label">Last sync</div>
     <div class="footer-val" id="last-sync">—</div>
@@ -550,12 +556,13 @@ const CONFIG = {
   baseId: 'appypkTo1RMkbIjKl',
   base:   'https://api.airtable.com/v0',
   tables: {
-    sea:      'Sea Freight',
-    air:      'Air Freight',
-    road:     'Road Freight',
-    clearing: 'Clearing Only',
-    clients:    'Clients',
-    containers: 'Containers'
+    sea:            'Sea Freight',
+    air:            'Air Freight',
+    road:           'Road Freight',
+    clearing:       'Clearing Only',
+    clients:        'Clients',
+    containers:     'Containers',
+    recoveredFunds: 'Recovered funds'
   }
 };
 
@@ -564,10 +571,10 @@ const CONFIG = {
 // ════════════════════════════════════════
 const S = {
   page: 'pipeline',
-  sea: [], air: [], road: [], clearing: [], clients: [], containers: [],
+  sea: [], air: [], road: [], clearing: [], clients: [], containers: [], recoveredFunds: [],
   loading: false,
-  search: { sea:'', air:'', road:'', clearing:'' },
-  statusFilter: { sea:'all', air:'all', road:'all', clearing:'all' },
+  search: { sea:'', air:'', road:'', clearing:'', recoveredFunds:'' },
+  statusFilter: { sea:'all', air:'all', road:'all', clearing:'all', recoveredFunds:'all' },
 };
 
 const STATUSES = [
@@ -827,23 +834,40 @@ function normClearing(r) {
   };
 }
 
+function normRecoveredFund(r) {
+  const f = r.fields;
+  return {
+    id:        r.id,
+    name:      f['Name']      || '',
+    category:  f['Category']  || '',
+    refId:     f['ID']        || '',
+    coa:       f['CO/A']      || '',
+    orgAmount: f['Org Amount'] || '',
+    edtAmount: typeof f['EDT Amount'] === 'number' ? f['EDT Amount'] : (parseFloat(f['EDT Amount']) || 0),
+    status:    f['Status']    || '',
+    raw: f,
+  };
+}
+
 async function loadAll() {
   S.loading = true;
   renderContent();
   try {
-    const [sea, air, road, clearing, clients, containers] = await Promise.all([
+    const [sea, air, road, clearing, clients, containers, recoveredFunds] = await Promise.all([
       atFetch(CONFIG.tables.sea),
       atFetch(CONFIG.tables.air),
       atFetch(CONFIG.tables.road),
       atFetch(CONFIG.tables.clearing),
       atFetch(CONFIG.tables.clients),
       atFetch(CONFIG.tables.containers),
+      atFetch(CONFIG.tables.recoveredFunds),
     ]);
     S.sea        = sea.map(normSea).filter(r => r.fileNumber);
     S.air        = air.map(normAir).filter(r => r.fileNumber);
     S.road       = road.map(normRoad).filter(r => r.fileNumber);
     S.clearing   = clearing.map(normClearing).filter(r => r.fileNumber);
     S.clients    = clients.map(r => ({id:r.id, name:r.fields['Name']||'', ...r.fields}));
+    S.recoveredFunds = recoveredFunds.map(normRecoveredFund);
     S.containers = containers.map(r => ({
       id:         r.id,
       fileNumber: (r.fields['File Number']||'').trim(),
@@ -889,6 +913,8 @@ function updateCounts() {
   document.getElementById('cnt-inv-partial').textContent = all.filter(r=>r.invoiceStatus==='Partially Paid').length;
   document.getElementById('cnt-inv-paid').textContent  = all.filter(r=>r.invoiceStatus==='Paid').length;
   document.getElementById('cnt-inv-disputed').textContent = all.filter(r=>r.invoiceStatus==='Disputed').length;
+  const cntRec = document.getElementById('cnt-recovered');
+  if (cntRec) cntRec.textContent = S.recoveredFunds.length;
 }
 
 // ════════════════════════════════════════
@@ -899,8 +925,11 @@ function navigate(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page===page));
   const meta = TYPE_META[page];
   const invoicePages = { 'inv-needs':'Needs Invoicing', 'inv-sent':'Invoice Sent', 'inv-partial':'Partially Paid', 'inv-paid':'Paid', 'inv-disputed':'Disputed' };
-  document.getElementById('page-title').textContent = meta ? meta.label : (invoicePages[page] || 'Pipeline');
-  document.getElementById('add-btn').style.display = meta ? '' : 'none';
+  const allTitles = { ...invoicePages, 'recovered-funds': 'Recovered Funds' };
+  document.getElementById('page-title').textContent = meta ? meta.label : (allTitles[page] || 'Pipeline');
+  document.getElementById('add-btn').style.display = (meta || page === 'recovered-funds') ? '' : 'none';
+  if (page === 'recovered-funds') document.getElementById('add-btn').textContent = '+ New Entry';
+  else document.getElementById('add-btn').textContent = '+ New File';
   renderContent();
 }
 
@@ -918,6 +947,7 @@ function renderContent() {
     'inv-partial':()=>renderInvoicePage('Partially Paid'),
     'inv-paid':  ()=>renderInvoicePage('Paid'),
     'inv-disputed':()=>renderInvoicePage('Disputed'),
+    'recovered-funds': renderRecoveredFunds,
   };
   el.innerHTML = (renders[S.page]||renderPipeline)();
   attachListeners();
@@ -930,6 +960,10 @@ function attachListeners() {
     const f = document.getElementById(`filter-${t}`);
     if (f) f.addEventListener('change', e => { S.statusFilter[t]=e.target.value; rerenderTable(t); });
   });
+  const srF = document.getElementById('search-recoveredFunds');
+  if (srF) srF.addEventListener('input', e => { S.search.recoveredFunds=e.target.value; rerenderRecoveredFunds(); });
+  const stF = document.getElementById('filter-recoveredFunds');
+  if (stF) stF.addEventListener('change', e => { S.statusFilter.recoveredFunds=e.target.value; rerenderRecoveredFunds(); });
 }
 
 // ════════════════════════════════════════
@@ -1440,6 +1474,7 @@ async function tableInvoiceUpdate(type, id, status, selectEl) {
 // ADD / EDIT FORMS
 // ════════════════════════════════════════
 function openAddModal() {
+  if (S.page === 'recovered-funds') { openAddRecoveredFundModal(); return; }
   const type = S.page;
   if (!TYPE_META[type]) return;
   document.getElementById('modal-title').textContent = `New ${TYPE_META[type].label} File`;
@@ -2696,6 +2731,242 @@ async function saveNewContainer(fileNumber) {
     rerenderTable('sea');
     toast('✅ Container added');
   } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════
+// RECOVERED FUNDS
+// ════════════════════════════════════════
+function fmtCurrency(v) {
+  if (!v && v !== 0) return '—';
+  return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function rfStatusBadge(s) {
+  if (!s) return '<span class="badge b-gray">—</span>';
+  if (s === 'Paid')   return `<span class="badge b-green">✓ Paid</span>`;
+  if (s === 'Unpaid') return `<span class="badge b-red">Unpaid</span>`;
+  return `<span class="badge b-gray">${s}</span>`;
+}
+
+function getFilteredRF() {
+  const sf = S.statusFilter.recoveredFunds;
+  const q  = S.search.recoveredFunds.toLowerCase();
+  return S.recoveredFunds.filter(r => {
+    if (sf !== 'all' && r.status !== sf) return false;
+    if (!q) return true;
+    return [r.name, r.category, r.refId, r.coa, r.orgAmount].some(v => (v||'').toLowerCase().includes(q));
+  });
+}
+
+function renderRFRows(rows) {
+  if (!rows.length) return `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-title">No records match filters</div></div></td></tr>`;
+  return rows.map(r => `
+    <tr onclick="openEditRecoveredFundModal('${r.id}')">
+      <td class="td-bold">${r.name || '—'}</td>
+      <td><span class="badge b-gray">${r.category || '—'}</span></td>
+      <td class="td-mono">${r.refId || '—'}</td>
+      <td class="td-mono">${r.coa || '—'}</td>
+      <td class="td-mono">${r.orgAmount || '—'}</td>
+      <td class="td-mono" style="color:var(--green)">${fmtCurrency(r.edtAmount)}</td>
+      <td>${rfStatusBadge(r.status)}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-danger btn-sm" onclick="confirmDeleteRF('${r.id}','${r.name.replace(/'/g,"\\'")}')">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+function rerenderRecoveredFunds() {
+  const el = document.getElementById('tbody-rf');
+  if (el) el.innerHTML = renderRFRows(getFilteredRF());
+  const badge = document.getElementById('page-badge');
+  if (badge && S.page === 'recovered-funds') badge.textContent = `${S.recoveredFunds.length} entries`;
+}
+
+function renderRecoveredFunds() {
+  const data = S.recoveredFunds;
+  const paid = data.filter(r => r.status === 'Paid');
+  const totalPaid      = paid.reduce((s, r) => s + (r.edtAmount || 0), 0);
+  const totalPotential = data.reduce((s, r) => s + (r.edtAmount || 0), 0);
+  const unpaidCount    = data.filter(r => r.status === 'Unpaid').length;
+
+  document.getElementById('page-badge').textContent = `${data.length} entries`;
+
+  return `
+  <div class="stats-row" style="grid-template-columns:repeat(4,1fr)">
+    <div class="stat-card" style="border-color:rgba(63,185,80,.25)">
+      <div class="stat-label">Total Recovered (Paid)</div>
+      <div class="stat-value" style="color:var(--green);font-size:20px">${fmtCurrency(totalPaid)}</div>
+      <div class="stat-sub">${paid.length} paid entr${paid.length===1?'y':'ies'}</div>
+    </div>
+    <div class="stat-card" style="border-color:rgba(88,166,255,.2)">
+      <div class="stat-label">Potential (All)</div>
+      <div class="stat-value" style="color:var(--blue);font-size:20px">${fmtCurrency(totalPotential)}</div>
+      <div class="stat-sub">${data.length} total entries</div>
+    </div>
+    <div class="stat-card" style="border-color:rgba(248,81,73,.2)">
+      <div class="stat-label">Unpaid</div>
+      <div class="stat-value" style="color:var(--red)">${unpaidCount}</div>
+      <div class="stat-sub">Pending recovery</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending Amount</div>
+      <div class="stat-value" style="color:var(--orange);font-size:20px">${fmtCurrency(totalPotential - totalPaid)}</div>
+      <div class="stat-sub">Outstanding</div>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <svg width="13" height="13" fill="none" viewBox="0 0 16 16"><path fill="#7d8590" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.85-3.85-.017.017zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+      <input class="search-input" id="search-recoveredFunds" placeholder="Search name, category, ID, CO/A..." value="${S.search.recoveredFunds}">
+    </div>
+    <select class="filter-select" id="filter-recoveredFunds">
+      <option value="all" ${S.statusFilter.recoveredFunds==='all'?'selected':''}>All Statuses</option>
+      <option value="Paid" ${S.statusFilter.recoveredFunds==='Paid'?'selected':''}>Paid</option>
+      <option value="Unpaid" ${S.statusFilter.recoveredFunds==='Unpaid'?'selected':''}>Unpaid</option>
+    </select>
+  </div>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>ID</th>
+            <th>CO/A</th>
+            <th>Org Amount</th>
+            <th>EDT Amount</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-rf">${renderRFRows(getFilteredRF())}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function openAddRecoveredFundModal() {
+  document.getElementById('modal-title').textContent = 'New Recovered Fund Entry';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-grid">
+      <div class="form-group span2"><label>Name *</label><input id="rf-name" placeholder="e.g. Client Refund — ABC Ltd"></div>
+      <div class="form-group"><label>Category</label><input id="rf-category" placeholder="e.g. Overpayment, Refund..."></div>
+      <div class="form-group"><label>ID</label><input id="rf-id" placeholder="Reference ID"></div>
+      <div class="form-group"><label>CO/A</label><input id="rf-coa" placeholder="Chart of Accounts ref"></div>
+      <div class="form-group"><label>Org Amount</label><input id="rf-orgamount" placeholder="e.g. $1,200 or original figure"></div>
+      <div class="form-group"><label>EDT Amount ($)</label><input id="rf-edtamount" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="form-group span2"><label>Status</label>
+        <select id="rf-status">
+          <option value="">— Select —</option>
+          <option value="Paid">Paid</option>
+          <option value="Unpaid">Unpaid</option>
+        </select>
+      </div>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-green" onclick="saveNewRecoveredFund()">Save Entry</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function saveNewRecoveredFund() {
+  const name = document.getElementById('rf-name')?.value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  const edtRaw = document.getElementById('rf-edtamount')?.value;
+  const fields = {
+    'Name':       name,
+    'Category':   document.getElementById('rf-category')?.value.trim() || undefined,
+    'ID':         document.getElementById('rf-id')?.value.trim() || undefined,
+    'CO/A':       document.getElementById('rf-coa')?.value.trim() || undefined,
+    'Org Amount': document.getElementById('rf-orgamount')?.value.trim() || undefined,
+    'EDT Amount': edtRaw ? parseFloat(edtRaw) : undefined,
+    'Status':     document.getElementById('rf-status')?.value || undefined,
+  };
+  Object.keys(fields).forEach(k => { if (fields[k] === undefined) delete fields[k]; });
+  try {
+    const created = await atCreate(CONFIG.tables.recoveredFunds, fields);
+    S.recoveredFunds.push(normRecoveredFund(created));
+    closeModal();
+    const cntRec = document.getElementById('cnt-recovered');
+    if (cntRec) cntRec.textContent = S.recoveredFunds.length;
+    if (S.page === 'recovered-funds') renderContent();
+    toast('✅ Entry added');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function openEditRecoveredFundModal(id) {
+  const r = S.recoveredFunds.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('modal-title').textContent = `Edit — ${r.name || 'Entry'}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-grid">
+      <div class="form-group span2"><label>Name *</label><input id="rf-name" value="${r.name || ''}"></div>
+      <div class="form-group"><label>Category</label><input id="rf-category" value="${r.category || ''}"></div>
+      <div class="form-group"><label>ID</label><input id="rf-id" value="${r.refId || ''}"></div>
+      <div class="form-group"><label>CO/A</label><input id="rf-coa" value="${r.coa || ''}"></div>
+      <div class="form-group"><label>Org Amount</label><input id="rf-orgamount" value="${r.orgAmount || ''}"></div>
+      <div class="form-group"><label>EDT Amount ($)</label><input id="rf-edtamount" type="number" step="0.01" value="${r.edtAmount || ''}"></div>
+      <div class="form-group span2"><label>Status</label>
+        <select id="rf-status">
+          <option value="">— Select —</option>
+          <option value="Paid" ${r.status==='Paid'?'selected':''}>Paid</option>
+          <option value="Unpaid" ${r.status==='Unpaid'?'selected':''}>Unpaid</option>
+        </select>
+      </div>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-danger btn-sm" onclick="confirmDeleteRF('${id}','${(r.name||'').replace(/'/g,"\\'")}');closeModal()">Delete</button>
+    <button class="btn btn-green" onclick="saveEditRecoveredFund('${id}')">Save Changes</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function saveEditRecoveredFund(id) {
+  const name = document.getElementById('rf-name')?.value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  const edtRaw = document.getElementById('rf-edtamount')?.value;
+  const fields = {
+    'Name':       name,
+    'Category':   document.getElementById('rf-category')?.value.trim() || null,
+    'ID':         document.getElementById('rf-id')?.value.trim() || null,
+    'CO/A':       document.getElementById('rf-coa')?.value.trim() || null,
+    'Org Amount': document.getElementById('rf-orgamount')?.value.trim() || null,
+    'EDT Amount': edtRaw ? parseFloat(edtRaw) : null,
+    'Status':     document.getElementById('rf-status')?.value || null,
+  };
+  Object.keys(fields).forEach(k => { if (fields[k] === null) delete fields[k]; });
+  try {
+    await atUpdate(CONFIG.tables.recoveredFunds, id, fields);
+    const idx = S.recoveredFunds.findIndex(x => x.id === id);
+    if (idx !== -1) {
+      S.recoveredFunds[idx] = { ...S.recoveredFunds[idx], name: fields['Name'], category: fields['Category']||'', refId: fields['ID']||'', coa: fields['CO/A']||'', orgAmount: fields['Org Amount']||'', edtAmount: fields['EDT Amount']||0, status: fields['Status']||'' };
+    }
+    closeModal();
+    if (S.page === 'recovered-funds') renderContent();
+    toast('✅ Entry updated');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function confirmDeleteRF(id, name) {
+  document.getElementById('confirm-title').textContent = 'Delete this entry?';
+  document.getElementById('confirm-msg').textContent   = `"${name}" will be permanently removed from Airtable.`;
+  window._confirmRFId = id;
+  document.getElementById('confirm-ok').onclick = deleteRecoveredFund;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+async function deleteRecoveredFund() {
+  const id = window._confirmRFId;
+  closeConfirm();
+  try {
+    await atDelete(CONFIG.tables.recoveredFunds, id);
+    S.recoveredFunds = S.recoveredFunds.filter(r => r.id !== id);
+    const cntRec = document.getElementById('cnt-recovered');
+    if (cntRec) cntRec.textContent = S.recoveredFunds.length;
+    if (S.page === 'recovered-funds') renderContent();
+    toast('🗑 Entry deleted');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
 // ════════════════════════════════════════
