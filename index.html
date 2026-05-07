@@ -547,6 +547,7 @@ body.light select option { background: #ffffff; }
   <iframe class="pdf-frame" id="pdf-frame" src=""></iframe>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ════════════════════════════════════════
 // CONFIG — replace with your values
@@ -1175,6 +1176,7 @@ function renderFreight(type) {
       <option value="Active" ${S.statusFilter[type]==='Active'?'selected':''}>Active Only</option>
       ${STATUSES.map(s=>`<option value="${s}" ${S.statusFilter[type]===s?'selected':''}>${s}</option>`).join('')}
     </select>
+    ${type === 'sea' ? `<button class="btn btn-ghost btn-sm" onclick="openSeaExportModal()" style="white-space:nowrap;display:flex;align-items:center;gap:5px">⬇ Export Excel</button>` : ''}
   </div>
   <div class="table-card">
     <div class="table-wrap">
@@ -2986,6 +2988,160 @@ function toggleTheme() {
     });
   }
 })();
+
+// ════════════════════════════════════════
+// SEA FREIGHT EXCEL EXPORT
+// ════════════════════════════════════════
+function openSeaExportModal() {
+  const files = S.sea.slice().sort((a, b) =>
+    (a.fileNumber||'').localeCompare(b.fileNumber||'', undefined, {numeric:true, sensitivity:'base'})
+  );
+
+  const cardsHTML = files.map(r => {
+    const ctrs = containersForFile(r.fileNumber);
+    const ctrLabel = ctrs.length + ' container' + (ctrs.length !== 1 ? 's' : '');
+    const searchKey = [
+      r.fileNumber,
+      r.clientName,
+      ...ctrs.map(c => c.truckNo),
+      ...ctrs.map(c => c.trucking),
+      ...ctrs.map(c => c.containerLoadDate),
+    ].filter(Boolean).join(' ').toLowerCase();
+    return '<div class="export-file-card" data-id="' + r.id + '" data-search="' + searchKey + '" onclick="toggleExportCard(this)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;user-select:none;transition:all .15s">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-family:var(--mono);font-size:13px;font-weight:600">' + r.fileNumber + '</div>'
+      + '<div style="font-size:11px;margin-top:2px;opacity:.7">' + (r.clientName||'—') + ' · ' + ctrLabel + '</div>'
+      + '</div>'
+      + '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid rgba(255,255,255,.1);opacity:.7;flex-shrink:0;white-space:nowrap">' + (r.status||'TBA') + '</span>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('modal-title').textContent = '🚢 Export Sea Freight — Select Files';
+  document.getElementById('modal-body').innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    + '<span style="font-size:12px;color:var(--muted)">' + files.length + ' files available</span>'
+    + '<button id="exp-sel-all-btn" onclick="toggleAllExportFiles()" style="background:var(--green-dim);border:1px solid rgba(63,185,80,.25);color:var(--green);font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;cursor:pointer">Select All</button>'
+    + '</div>'
+    + '<div style="position:relative;margin-bottom:10px">'
+    + '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none" width="13" height="13" fill="none" viewBox="0 0 16 16"><path fill="#7d8590" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.85-3.85-.017.017zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>'
+    + '<input id="exp-search" oninput="filterExportCards(this.value)" placeholder="Search file number or client..." style="width:100%;padding:8px 10px 8px 32px;background:var(--surface);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-family:var(--font);font-size:12px;outline:none" onfocus="this.style.borderColor=\'var(--green)\'" onblur="this.style.borderColor=\'var(--border2)\'">'
+    + '</div>'
+    + '<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:4px">'
+    + cardsHTML
+    + '</div>';
+
+  document.getElementById('modal-footer').innerHTML =
+    '<span id="exp-count-lbl" style="font-size:12px;color:var(--muted);margin-right:auto;align-self:center">0 files selected</span>'
+    + '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'
+    + '<button class="btn btn-green" onclick="doSeaExport()">⬇ Export Excel</button>';
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function toggleExportCard(el) {
+  const selected = el.dataset.selected === 'true';
+  if (selected) {
+    el.dataset.selected = 'false';
+    el.style.background = 'var(--surface)';
+    el.style.borderColor = 'var(--border)';
+    el.style.color = '';
+  } else {
+    el.dataset.selected = 'true';
+    el.style.background = 'rgba(63,185,80,0.12)';
+    el.style.borderColor = 'rgba(63,185,80,0.45)';
+    el.style.color = 'var(--text)';
+  }
+  updateExportCount();
+}
+
+function toggleAllExportFiles() {
+  const cards = [...document.querySelectorAll('.export-file-card')].filter(c => c.style.display !== 'none');
+  const allSelected = cards.every(c => c.dataset.selected === 'true');
+  cards.forEach(c => {
+    if (allSelected) {
+      c.dataset.selected = 'false';
+      c.style.background = 'var(--surface)';
+      c.style.borderColor = 'var(--border)';
+      c.style.color = '';
+    } else {
+      c.dataset.selected = 'true';
+      c.style.background = 'rgba(63,185,80,0.12)';
+      c.style.borderColor = 'rgba(63,185,80,0.45)';
+      c.style.color = 'var(--text)';
+    }
+  });
+  updateExportCount();
+}
+
+function updateExportCount() {
+  const n = document.querySelectorAll('.export-file-card[data-selected="true"]').length;
+  const visible = [...document.querySelectorAll('.export-file-card')].filter(c => c.style.display !== 'none');
+  const allVisibleSelected = visible.length > 0 && visible.every(c => c.dataset.selected === 'true');
+  const lbl = document.getElementById('exp-count-lbl');
+  if (lbl) lbl.textContent = `${n} file${n !== 1 ? 's' : ''} selected`;
+  const btn = document.getElementById('exp-sel-all-btn');
+  if (btn) btn.textContent = allVisibleSelected ? 'Deselect All' : 'Select All';
+}
+
+function filterExportCards(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('.export-file-card').forEach(card => {
+    const text = card.dataset.search || '';
+    card.style.display = !q || text.includes(q) ? '' : 'none';
+  });
+  updateExportCount();
+}
+
+function doSeaExport() {
+  const selectedIds = [...document.querySelectorAll('.export-file-card[data-selected="true"]')].map(el => el.dataset.id);
+  if (!selectedIds.length) { toast('Select at least one file to export', 'error'); return; }
+
+  const rows = [];
+  selectedIds.forEach(id => {
+    const file = S.sea.find(r => r.id === id);
+    if (!file) return;
+    const ctrs = containersForFile(file.fileNumber);
+    if (!ctrs.length) {
+      rows.push({
+        'File Number': file.fileNumber,
+        'Truck No': '',
+        'Transporter': '',
+        'Container Loading Date': '',
+      });
+    } else {
+      ctrs.forEach(c => {
+        rows.push({
+          'File Number': file.fileNumber,
+          'Truck No': c.truckNo || '',
+          'Transporter': c.trucking || '',
+          'Container Loading Date': c.containerLoadDate || '',
+        });
+      });
+    }
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 16 }, // File Number
+    { wch: 14 }, // Truck No
+    { wch: 24 }, // Transporter
+    { wch: 24 }, // Container Loading Date
+  ];
+
+  // Style header row bold
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (ws[cellAddr]) ws[cellAddr].s = { font: { bold: true } };
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sea Freight');
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `sea-freight-export-${date}.xlsx`);
+  closeModal();
+  toast(`✅ Exported ${selectedIds.length} file${selectedIds.length !== 1 ? 's' : ''} to Excel`);
+}
 
 // ════════════════════════════════════════
 // INIT
