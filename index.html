@@ -2190,7 +2190,7 @@ function renderFreight(type) {
   const active    = data.length - delivered - onHold;
   document.getElementById('page-badge').textContent = `${data.length} files`;
 
-  const bannerImages = { sea: 'Sea.jpg', air: 'air.jpg', road: 'road.jpg', clearing: 'clearing.jpg' };
+  const bannerImages = { sea: 'sea.jpg', air: 'air.jpg', road: 'road.jpg', clearing: 'clearing.jpg' };
   const bannerColors = { sea: 'var(--sea)', air: 'var(--air)', road: 'var(--road)', clearing: 'var(--clear)' };
   const bannerLabels = { sea: '🚢 Ocean Freight', air: '✈️ Air Freight', road: '🚛 Road Freight', clearing: '📋 Customs Clearing' };
   const imgSrc = `./Pictures/${bannerImages[type]}`;
