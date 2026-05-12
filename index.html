@@ -96,11 +96,17 @@ html, body {
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: width 280ms cubic-bezier(0.34, 1.15, 0.64, 1);
 }
 
 .sidebar-logo {
-  padding: 20px 16px 16px;
+  padding: 14px 12px 12px;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .logo-eyebrow {
   font-size: 9px;
@@ -109,23 +115,73 @@ html, body {
   color: var(--green);
   text-transform: uppercase;
   margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 200ms, max-height 200ms;
 }
 .logo-wordmark {
   display: flex;
   align-items: baseline;
   gap: 5px;
+  white-space: nowrap;
 }
 .logo-pic {
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -.01em;
+  flex-shrink: 0;
 }
 .logo-ops {
   font-size: 12px;
   font-weight: 500;
   color: var(--muted2);
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 220ms, max-width 280ms cubic-bezier(0.34, 1.15, 0.64, 1);
+  max-width: 120px;
 }
+
+/* ── SIDEBAR TOGGLE BUTTON ───────────────── */
+.sidebar-toggle {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms, color 140ms, border-color 140ms;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover { background: oklch(100% 0 0 / 0.07); color: var(--text); border-color: var(--border3); }
+.sidebar-toggle svg { transition: transform 280ms cubic-bezier(0.34, 1.15, 0.64, 1); }
+
+/* ── COLLAPSED SIDEBAR STATE ─────────────── */
+.sidebar.collapsed {
+  width: 52px;
+}
+.sidebar.collapsed .logo-ops,
+.sidebar.collapsed .logo-eyebrow,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-item span:not(.nav-icon),
+.sidebar.collapsed .nav-count,
+.sidebar.collapsed .sidebar-footer-text { 
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sidebar.collapsed .logo-eyebrow { max-height: 0; margin: 0; }
+.sidebar.collapsed .logo-ops { max-width: 0; }
+.sidebar.collapsed .nav-icon { margin: 0 auto; }
+.sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+.sidebar.collapsed .sidebar-footer { display: none; }
+
 
 .nav-group { padding: 14px 8px 2px; }
 .nav-label {
@@ -242,7 +298,7 @@ html, body {
 .topbar-actions { display: flex; gap: 6px; align-items: center; }
 
 /* ── CONTENT ─────────────────────────────── */
-.content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; overflow-x: hidden; }
 
 /* ── STATS ROW ───────────────────────────── */
 .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
@@ -454,30 +510,45 @@ tbody tr td:last-child { border-radius: 0 6px 6px 0; }
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: oklch(0% 0 0 / 0.75);
-  backdrop-filter: blur(8px);
+  background: oklch(0% 0 0 / 0.6);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 200ms ease;
+  transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              backdrop-filter 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-overlay.closing { opacity: 0; transition-duration: 200ms; }
 .modal {
   background: var(--card);
   border: 1px solid var(--border2);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   width: 100%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  transform: translateY(16px) scale(0.98);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 32px 80px oklch(0% 0 0 / 0.6);
+  transform: scale(0.88) translateY(24px);
+  opacity: 0;
+  transition: transform 420ms cubic-bezier(0.34, 1.32, 0.64, 1),
+              opacity 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 40px 100px oklch(0% 0 0 / 0.65), 0 0 0 1px oklch(100% 0 0 / 0.04);
+  will-change: transform, opacity;
 }
-.modal-overlay.open .modal { transform: translateY(0) scale(1); }
+.modal-overlay.open .modal {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+.modal-overlay.closing .modal {
+  transform: scale(0.92) translateY(12px);
+  opacity: 0;
+  transition: transform 200ms cubic-bezier(0.4, 0, 1, 1),
+              opacity 160ms ease;
+}
 .modal-header {
   display: flex;
   align-items: center;
@@ -567,27 +638,45 @@ select option { background: var(--card2); }
 .panel-overlay {
   position: fixed;
   inset: 0;
-  background: oklch(0% 0 0 / 0.35);
+  background: oklch(0% 0 0 / 0.6);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   z-index: 89;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 250ms;
+  transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              backdrop-filter 280ms;
 }
 .panel-overlay.open { opacity: 1; pointer-events: all; }
+.panel-overlay.closing { opacity: 0; transition-duration: 200ms; }
 .detail-panel {
-  position: fixed;
-  top: 0;
-  right: -500px;
-  width: 480px;
-  height: 100vh;
   background: var(--card);
-  border-left: 1px solid var(--border2);
-  z-index: 90;
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  width: 500px;
+  max-height: 85vh;
   overflow-y: auto;
-  transition: right 280ms cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: -20px 0 60px oklch(0% 0 0 / 0.45);
+  transform: scale(0.88) translateY(24px);
+  opacity: 0;
+  transition: transform 420ms cubic-bezier(0.34, 1.32, 0.64, 1),
+              opacity 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 40px 100px oklch(0% 0 0 / 0.65), 0 0 0 1px oklch(100% 0 0 / 0.04);
+  will-change: transform, opacity;
+  flex-shrink: 0;
 }
-.detail-panel.open { right: 0; }
+.panel-overlay.open .detail-panel {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+.panel-overlay.closing .detail-panel {
+  transform: scale(0.92) translateY(12px);
+  opacity: 0;
+  transition: transform 200ms cubic-bezier(0.4, 0, 1, 1),
+              opacity 160ms ease;
+}
 .panel-header {
   display: flex;
   align-items: center;
@@ -626,30 +715,42 @@ select option { background: var(--card2); }
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: oklch(0% 0 0 / 0.8);
-  backdrop-filter: blur(6px);
+  background: oklch(0% 0 0 / 0.72);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 160ms;
+  transition: opacity 240ms cubic-bezier(0.4, 0, 0.2, 1),
+              backdrop-filter 240ms;
 }
 .confirm-overlay.open { opacity: 1; pointer-events: all; }
+.confirm-overlay.closing { opacity: 0; transition-duration: 160ms; }
 .confirm-box {
-  background: var(--card);
+  background: oklch(22% 0.008 240 / 0.96);
   border: 1px solid oklch(62% 0.22 25 / 0.28);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   padding: 28px 28px 22px;
   width: 100%;
-  max-width: 360px;
+  max-width: 320px;
   text-align: center;
-  transform: scale(0.94);
-  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 24px 64px oklch(0% 0 0 / 0.55);
+  transform: scale(0.80) translateY(10px);
+  opacity: 0;
+  transition: transform 380ms cubic-bezier(0.34, 1.45, 0.64, 1),
+              opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 32px 80px oklch(0% 0 0 / 0.65);
+  will-change: transform, opacity;
 }
-.confirm-overlay.open .confirm-box { transform: scale(1); }
+.confirm-overlay.open .confirm-box { transform: scale(1) translateY(0); opacity: 1; }
+.confirm-overlay.closing .confirm-box {
+  transform: scale(0.86) translateY(6px);
+  opacity: 0;
+  transition: transform 160ms cubic-bezier(0.4, 0, 1, 1),
+              opacity 130ms ease;
+}
 .confirm-icon { font-size: 28px; margin-bottom: 12px; }
 .confirm-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; letter-spacing: -.01em; }
 .confirm-msg { font-size: 12.5px; color: var(--muted2); margin-bottom: 22px; line-height: 1.65; }
@@ -658,34 +759,44 @@ select option { background: var(--card2); }
 /* ── TOAST ───────────────────────────────── */
 .toast-container {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 300;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-end;
+  align-items: center;
+  pointer-events: none;
 }
 .toast {
-  background: var(--card2);
+  background: oklch(24% 0.010 240 / 0.92);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  font-size: 12px;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-size: 13px;
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 8px 24px oklch(0% 0 0 / 0.35);
-  animation: toastIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
-  max-width: 310px;
+  box-shadow: 0 8px 32px oklch(0% 0 0 / 0.45), 0 0 0 1px oklch(100% 0 0 / 0.05);
+  animation: toastIn 400ms cubic-bezier(0.34, 1.32, 0.64, 1) forwards;
+  max-width: 340px;
+  pointer-events: all;
   cursor: pointer;
 }
-.toast.success { border-color: oklch(72% 0.19 145 / 0.3); }
-.toast.error   { border-color: oklch(62% 0.22 25  / 0.3); }
+.toast.success { border-color: oklch(72% 0.19 145 / 0.35); }
+.toast.error   { border-color: oklch(62% 0.22 25  / 0.35); }
+.toast.out { animation: toastOut 240ms cubic-bezier(0.4, 0, 1, 1) forwards; }
 @keyframes toastIn {
-  from { transform: translateX(12px) translateY(4px); opacity: 0; }
-  to   { transform: translateX(0) translateY(0); opacity: 1; }
+  from { transform: translateY(16px) scale(0.88); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes toastOut {
+  from { transform: translateY(0) scale(1); opacity: 1; }
+  to   { transform: translateY(10px) scale(0.90); opacity: 0; }
 }
 
 /* ── EMPTY & LOADING STATES ──────────────── */
@@ -877,7 +988,157 @@ select option { background: var(--card2); }
 .pdf-toolbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .pdf-frame { width: 90vw; max-width: 960px; height: 80vh; border: none; border-radius: 8px; background: oklch(95% 0 0); }
 
-/* ── SCROLLBAR ───────────────────────────── */
+/* ── FREIGHT BANNER ──────────────────────── */
+.freight-banner {
+  position: relative;
+  width: calc(100% + 48px);
+  margin: -20px -24px 0;
+  height: 420px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.freight-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+  display: block;
+  filter: brightness(0.72) saturate(1.1);
+  transition: transform 8s ease-out;
+  transform: scale(1.04);
+}
+.freight-banner.loaded img { transform: scale(1); }
+.freight-banner-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 30%,
+    oklch(12% 0.008 240 / 0.55) 70%,
+    oklch(12% 0.008 240 / 1) 100%
+  );
+  pointer-events: none;
+}
+body.light .freight-banner-gradient {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 30%,
+    oklch(96% 0.004 240 / 0.55) 70%,
+    oklch(96% 0.004 240 / 1) 100%
+  );
+}
+.freight-banner-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 24px 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.freight-banner-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.freight-banner-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 16px oklch(0% 0 0 / 0.4);
+}
+body.light .freight-banner-title { color: #fff; }
+.freight-banner-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.banner-pill {
+  background: oklch(100% 0 0 / 0.12);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(100% 0 0 / 0.18);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.banner-pill.accent { background: var(--green); border-color: transparent; color: oklch(12% 0.008 240); }
+
+/* ── PAGE TRANSITION ─────────────────────── */
+#main-content {
+  transition: none;
+}
+#main-content.page-exit {
+  animation: pageOut 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+#main-content.page-enter {
+  animation: pageIn 300ms cubic-bezier(0.34, 1.18, 0.64, 1) forwards;
+}
+@keyframes pageOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-8px) scale(0.985); }
+}
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── SAVE PROGRESS BAR ───────────────────── */
+.save-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 0;
+}
+.save-progress-track {
+  height: 3px;
+  background: var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.save-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--green), oklch(76% 0.22 165));
+  width: 0%;
+  transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px var(--green);
+}
+.save-progress-label {
+  font-size: 11px;
+  color: var(--muted2);
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: .01em;
+}
+.save-progress-label.done { color: var(--green); }
+
+/* ── MODAL HEADER ANIMATE ────────────────── */
+.modal-header, .panel-header {
+  animation: fadeSlideDown 260ms cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: oklch(100% 0 0 / 0.09); border-radius: 4px; }
@@ -1012,12 +1273,18 @@ select option { background: var(--card2); }
 
 /* ── RESPONSIVE ──────────────────────────── */
 @media (max-width: 900px) {
-  :root { --sidebar: 52px; }
-  .nav-item span, .nav-item .nav-count, .nav-label,
-  .logo-ops, .logo-pic, .logo-eyebrow, .sidebar-footer { display: none; }
-  .nav-icon { margin: 0 auto; }
+  .sidebar:not(.collapsed) { --sidebar: 52px; }
+  .sidebar:not(.collapsed) .nav-item span:not(.nav-icon),
+  .sidebar:not(.collapsed) .nav-count,
+  .sidebar:not(.collapsed) .nav-label,
+  .sidebar:not(.collapsed) .logo-ops,
+  .sidebar:not(.collapsed) .logo-eyebrow,
+  .sidebar:not(.collapsed) .sidebar-footer { display: none; }
+  .sidebar:not(.collapsed) .nav-icon { margin: 0 auto; }
   .stats-row { grid-template-columns: 1fr 1fr; }
   .pipeline-grid { grid-template-columns: 1fr; }
+  .freight-banner { height: 160px; }
+  .freight-banner-title { font-size: 22px; }
 }
 
 /* ── LIGHT MODE ──────────────────────────── */
@@ -1061,11 +1328,18 @@ body.light .sidebar-logo { border-bottom-color: oklch(0% 0 0 / 0.08); }
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-eyebrow">Prime International</div>
-    <div class="logo-wordmark">
-      <span class="logo-pic">PIC</span>
-      <span class="logo-ops">Operations</span>
+    <div style="flex:1;min-width:0">
+      <div class="logo-eyebrow">Prime International</div>
+      <div class="logo-wordmark">
+        <span class="logo-pic">PIC</span>
+        <span class="logo-ops">Operations</span>
+      </div>
     </div>
+    <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" id="sidebar-toggle-icon">
+        <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
 
   <div class="nav-group">
@@ -1255,13 +1529,14 @@ body.light .sidebar-logo { border-bottom-color: oklch(0% 0 0 / 0.08); }
 </div>
 
 <!-- PANEL -->
-<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
-<div class="detail-panel" id="detail-panel">
-  <div class="panel-header">
-    <div class="panel-title" id="panel-title"></div>
-    <button class="modal-close" onclick="closePanel()">✕</button>
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel(event)">
+  <div class="detail-panel" id="detail-panel" onclick="event.stopPropagation()">
+    <div class="panel-header">
+      <div class="panel-title" id="panel-title"></div>
+      <button class="modal-close" onclick="closePanel()">✕</button>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
   </div>
-  <div class="panel-body" id="panel-body"></div>
 </div>
 
 <!-- CONFIRM -->
@@ -1676,7 +1951,17 @@ function navigate(page) {
   document.getElementById('add-btn').style.display = (meta || page === 'recovered-funds') ? '' : 'none';
   if (page === 'recovered-funds') document.getElementById('add-btn').textContent = '+ New Entry';
   else document.getElementById('add-btn').textContent = '+ New File';
-  renderContent();
+
+  const el = document.getElementById('main-content');
+  el.classList.remove('page-enter');
+  el.classList.add('page-exit');
+  setTimeout(() => {
+    el.classList.remove('page-exit');
+    renderContent();
+    void el.offsetWidth; // force reflow
+    el.classList.add('page-enter');
+    setTimeout(() => el.classList.remove('page-enter'), 320);
+  }, 110);
 }
 
 function renderContent() {
@@ -1904,7 +2189,29 @@ function renderFreight(type) {
   const onHold    = data.filter(r => (r.status||'').toLowerCase().includes('on hold')).length;
   const active    = data.length - delivered - onHold;
   document.getElementById('page-badge').textContent = `${data.length} files`;
+
+  const bannerImages = { sea: 'Sea.jpg', air: 'air.jpg', road: 'road.jpg', clearing: 'clearing.jpg' };
+  const bannerColors = { sea: 'var(--sea)', air: 'var(--air)', road: 'var(--road)', clearing: 'var(--clear)' };
+  const bannerLabels = { sea: '🚢 Ocean Freight', air: '✈️ Air Freight', road: '🚛 Road Freight', clearing: '📋 Customs Clearing' };
+  const imgSrc = `./Pictures/${bannerImages[type]}`;
+
   return `
+  <div class="freight-banner" id="freight-banner-${type}">
+    <img src="${imgSrc}" alt="${m.label}" onload="this.closest('.freight-banner').classList.add('loaded')" onerror="this.closest('.freight-banner').style.background='linear-gradient(135deg, var(--card2) 0%, var(--card) 100%)'">
+    <div class="freight-banner-gradient"></div>
+    <div class="freight-banner-content">
+      <div>
+        <div class="freight-banner-label" style="color:${bannerColors[type]}">${bannerLabels[type]}</div>
+        <div class="freight-banner-title">${m.label}</div>
+      </div>
+      <div class="freight-banner-pills">
+        <div class="banner-pill accent">${active} Active</div>
+        <div class="banner-pill">${delivered} Delivered</div>
+        <div class="banner-pill">${data.length} Total</div>
+      </div>
+    </div>
+  </div>
+  <div style="padding-top:20px">
   <div class="stats-row">
     <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${data.length}</div><div class="stat-sub">All files</div></div>
     <div class="stat-card" style="border-color:rgba(63,185,80,.2)"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--green)">${active}</div><div class="stat-sub">In progress</div></div>
@@ -1930,6 +2237,7 @@ function renderFreight(type) {
         <tbody id="tbody-${type}">${renderRows(type, getFiltered(type))}</tbody>
       </table>
     </div>
+  </div>
   </div>`;
 }
 
@@ -2021,13 +2329,19 @@ function openPanel(type, id) {
   if (!record) return;
   document.getElementById('panel-title').textContent = record.fileNumber;
   document.getElementById('panel-body').innerHTML = panelBody(type, record);
-  document.getElementById('detail-panel').classList.add('open');
+  applyClickOrigin(document.getElementById('detail-panel'));
   document.getElementById('panel-overlay').classList.add('open');
 }
 
-function closePanel() {
-  document.getElementById('detail-panel').classList.remove('open');
-  document.getElementById('panel-overlay').classList.remove('open');
+function closePanel(e) {
+  if (e && e.target !== document.getElementById('panel-overlay')) return;
+  const overlay = document.getElementById('panel-overlay');
+  const panel   = document.getElementById('detail-panel');
+  overlay.classList.add('closing');
+  setTimeout(() => {
+    overlay.classList.remove('open','closing');
+    resetOrigin(panel);
+  }, 200);
 }
 
 const STATUS_COLORS = {
@@ -2229,6 +2543,7 @@ function openAddModal() {
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-green" onclick="saveRecord('${type}')">Save File</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -2240,12 +2555,19 @@ function openEditModal(type, id) {
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-green" onclick="saveRecord('${type}','${id}')">Save Changes</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modal-overlay')) return;
-  document.getElementById('modal-overlay').classList.remove('open');
+  const overlay = document.getElementById('modal-overlay');
+  const modal   = overlay.querySelector('.modal');
+  overlay.classList.add('closing');
+  setTimeout(() => {
+    overlay.classList.remove('open','closing');
+    resetOrigin(modal);
+  }, 200);
 }
 
 function clientDatalist() {
@@ -2539,6 +2861,32 @@ async function saveRecord(type, editId) {
   if (!fileNumber) { toast('File number is required','error'); return; }
   if (!clientName) { toast('Client is required','error'); return; }
 
+  // ── Progress bar UI ──────────────────────────────────
+  const footer = document.getElementById('modal-footer');
+  const saveBtn = footer.querySelector('.btn-green');
+  const cancelBtn = footer.querySelector('.btn-ghost');
+  if (saveBtn) saveBtn.disabled = true;
+  if (cancelBtn) cancelBtn.disabled = true;
+
+  const progEl = document.createElement('div');
+  progEl.className = 'save-progress';
+  progEl.innerHTML = `
+    <div class="save-progress-track"><div class="save-progress-fill" id="_sp_fill"></div></div>
+    <div class="save-progress-label" id="_sp_label">Validating…</div>`;
+  if (saveBtn) saveBtn.replaceWith(progEl);
+
+  const setProgress = (pct, label, done=false) => {
+    const fill = document.getElementById('_sp_fill');
+    const lbl  = document.getElementById('_sp_label');
+    if (fill) fill.style.width = pct + '%';
+    if (lbl)  { lbl.textContent = label; if (done) lbl.classList.add('done'); }
+  };
+
+  setProgress(20, 'Validating…');
+  await new Promise(r => setTimeout(r, 180)); // let bar animate
+  setProgress(45, editId ? 'Updating Airtable…' : 'Creating record…');
+  // ─────────────────────────────────────────────────────
+
   let clientId = resolveClientId(clientName);
   if (!clientId && editId) {
     const existing = S[type]?.find(r => r.id === editId);
@@ -2629,10 +2977,12 @@ async function saveRecord(type, editId) {
         }
         S[type][idx] = rec;
       }
+      setProgress(80, 'Saving…');
       toast('✅ File updated');
+      setProgress(100, 'Done!', true);
+      await new Promise(r => setTimeout(r, 340));
     } else {
       const created = await atCreate(table, fields);
-      // For sea freight, batch-create all container rows in as few calls as possible
       if (type === 'sea') {
         const containers = getFormContainers();
         if (containers.length) {
@@ -2685,7 +3035,10 @@ async function saveRecord(type, editId) {
         }
         S[type].push(rec);
       }
+      setProgress(80, 'Saving containers…');
       toast('✅ File created');
+      setProgress(100, 'Done!', true);
+      await new Promise(r => setTimeout(r, 340));
     }
     closeModal();
     updateCounts();
@@ -2693,7 +3046,20 @@ async function saveRecord(type, editId) {
     if (S.page === 'pipeline') renderContent();
     // Navigate only if needed — no loadAll()
     if (S.page !== type && S.page !== 'pipeline') navigate(type);
-  } catch(e) { toast('Error: '+e.message,'error'); }
+  } catch(e) {
+    // Restore save button on error
+    const sp = document.getElementById('_sp_fill')?.closest('.save-progress');
+    if (sp) {
+      const newBtn = document.createElement('button');
+      newBtn.className = 'btn btn-green';
+      newBtn.textContent = editId ? 'Save Changes' : 'Save File';
+      newBtn.setAttribute('onclick', `saveRecord('${type}'${editId ? `,'${editId}'`:''})`);
+      sp.replaceWith(newBtn);
+      const cBtn = document.querySelector('#modal-footer .btn-ghost');
+      if (cBtn) cBtn.disabled = false;
+    }
+    toast('Error: '+e.message,'error');
+  }
 }
 
 // ════════════════════════════════════════
@@ -2723,12 +3089,19 @@ function confirmDelete(type, id, fileNum) {
       if (S.page==='pipeline') renderContent();
     } catch(e) { toast('Error: '+e.message,'error'); }
   };
+  applyClickOrigin(document.querySelector('#confirm-overlay .confirm-box'));
   document.getElementById('confirm-overlay').classList.add('open');
 }
 
 function closeConfirm() {
-  document.getElementById('confirm-overlay').classList.remove('open');
-  _confirmCb = null;
+  const el  = document.getElementById('confirm-overlay');
+  const box = el.querySelector('.confirm-box');
+  el.classList.add('closing');
+  setTimeout(() => {
+    el.classList.remove('open','closing');
+    _confirmCb = null;
+    resetOrigin(box);
+  }, 160);
 }
 
 async function runConfirm() {
@@ -2745,9 +3118,13 @@ function toast(msg, type='success') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = msg;
-  el.onclick = () => el.remove();
+  const dismiss = () => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 240);
+  };
+  el.onclick = dismiss;
   c.appendChild(el);
-  setTimeout(()=>el.remove(), type==='error'?8000:3500);
+  setTimeout(dismiss, type==='error' ? 8000 : 3500);
 }
 
 // ════════════════════════════════════════
@@ -3026,6 +3403,7 @@ function openNewClientModal(selectId) {
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-green" onclick="createNewClient('${selectId||''}')">Create Client</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('nc-name')?.focus(), 80);
 }
@@ -3357,6 +3735,7 @@ function openEditContainerModal(containerId, fileNumber) {
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-green" onclick="saveEditContainer('${containerId}','${fileNumber}')">Save Changes</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -3430,6 +3809,7 @@ function openAddContainerModal(fileNumber) {
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-green" onclick="saveNewContainer('${fileNumber}')">Add Container</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -3614,6 +3994,7 @@ function openAddRecoveredFundModal() {
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-green" onclick="saveNewRecoveredFund()">Save Entry</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -3666,6 +4047,7 @@ function openEditRecoveredFundModal(id) {
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-danger btn-sm" onclick="confirmDeleteRF('${id}','${(r.name||'').replace(/'/g,"\\'")}');closeModal()">Delete</button>
     <button class="btn btn-green" onclick="saveEditRecoveredFund('${id}')">Save Changes</button>`;
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -3700,6 +4082,7 @@ function confirmDeleteRF(id, name) {
   document.getElementById('confirm-msg').textContent   = `"${name}" will be permanently removed from Airtable.`;
   window._confirmRFId = id;
   document.getElementById('confirm-ok').onclick = deleteRecoveredFund;
+  applyClickOrigin(document.querySelector('#confirm-overlay .confirm-box'));
   document.getElementById('confirm-overlay').classList.add('open');
 }
 
@@ -3780,6 +4163,7 @@ function openSeaExportModal() {
     + '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'
     + '<button class="btn btn-green" onclick="doSeaExport()">⬇ Export Excel</button>';
 
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -3886,6 +4270,51 @@ function doSeaExport() {
   XLSX.writeFile(wb, `sea-freight-export-${date}.xlsx`);
   closeModal();
   toast(`✅ Exported ${selectedIds.length} file${selectedIds.length !== 1 ? 's' : ''} to Excel`);
+}
+
+// ════════════════════════════════════════
+// SIDEBAR TOGGLE
+// ════════════════════════════════════════
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  // Persist preference
+  try { localStorage.setItem('pic_sidebar_collapsed', isCollapsed ? '1' : '0'); } catch(e) {}
+}
+
+// Restore sidebar state on load
+try {
+  if (localStorage.getItem('pic_sidebar_collapsed') === '1') {
+    document.querySelector('.sidebar')?.classList.add('collapsed');
+  }
+} catch(e) {}
+
+// ════════════════════════════════════════
+// CLICK-ORIGIN ANIMATION
+// ════════════════════════════════════════
+let _lastClick = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+document.addEventListener('click', e => {
+  _lastClick = { x: e.clientX, y: e.clientY };
+}, true); // capture phase — fires before any handler
+
+/**
+ * Sets transform-origin on a popup element so the spring animation
+ * appears to grow from the exact pixel the user tapped.
+ * Works because all popups are always in the DOM (just opacity:0),
+ * so getBoundingClientRect() returns real layout coordinates.
+ */
+function applyClickOrigin(popupEl) {
+  const rect = popupEl.getBoundingClientRect();
+  const { x: cx, y: cy } = _lastClick;
+  // Clamp within element so origin never escapes the bounds
+  const ox = Math.max(0, Math.min(rect.width,  cx - rect.left));
+  const oy = Math.max(0, Math.min(rect.height, cy - rect.top));
+  popupEl.style.transformOrigin = `${ox}px ${oy}px`;
+}
+
+function resetOrigin(popupEl) {
+  // After close animation, restore center so next open starts fresh
+  popupEl.style.transformOrigin = '';
 }
 
 // ════════════════════════════════════════
