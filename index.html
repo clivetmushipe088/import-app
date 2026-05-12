@@ -182,6 +182,18 @@ html, body {
 .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
 .sidebar.collapsed .sidebar-footer { display: none; }
 
+/* Collapsed header: button on top, PIC label below */
+.sidebar.collapsed .sidebar-logo {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+}
+.sidebar.collapsed .sidebar-toggle { order: 1; }
+.sidebar.collapsed .sidebar-logo > div { order: 2; flex: none; text-align: center; }
+.sidebar.collapsed .logo-pic { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+
 
 .nav-group { padding: 14px 8px 2px; }
 .nav-label {
@@ -638,44 +650,43 @@ select option { background: var(--card2); }
 .panel-overlay {
   position: fixed;
   inset: 0;
-  background: oklch(0% 0 0 / 0.6);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: oklch(0% 0 0 / 0.45);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
   z-index: 89;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-end;
   opacity: 0;
   pointer-events: none;
   transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1),
               backdrop-filter 280ms;
 }
 .panel-overlay.open { opacity: 1; pointer-events: all; }
-.panel-overlay.closing { opacity: 0; transition-duration: 200ms; }
+.panel-overlay.closing { opacity: 0; transition-duration: 220ms; }
 .detail-panel {
   background: var(--card);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  width: 500px;
-  max-height: 85vh;
+  border-left: 1px solid var(--border2);
+  border-radius: 0;
+  width: 460px;
+  max-width: 92vw;
+  height: 100%;
   overflow-y: auto;
-  transform: scale(0.88) translateY(24px);
-  opacity: 0;
-  transition: transform 420ms cubic-bezier(0.34, 1.32, 0.64, 1),
-              opacity 240ms cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 40px 100px oklch(0% 0 0 / 0.65), 0 0 0 1px oklch(100% 0 0 / 0.04);
-  will-change: transform, opacity;
+  transform: translateX(100%);
+  opacity: 1;
+  transition: transform 380ms cubic-bezier(0.32, 0.92, 0.36, 1);
+  box-shadow: -24px 0 80px oklch(0% 0 0 / 0.45), -1px 0 0 var(--border);
+  will-change: transform;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
 }
 .panel-overlay.open .detail-panel {
-  transform: scale(1) translateY(0);
-  opacity: 1;
+  transform: translateX(0);
 }
 .panel-overlay.closing .detail-panel {
-  transform: scale(0.92) translateY(12px);
-  opacity: 0;
-  transition: transform 200ms cubic-bezier(0.4, 0, 1, 1),
-              opacity 160ms ease;
+  transform: translateX(100%);
+  transition: transform 240ms cubic-bezier(0.4, 0, 1, 1);
 }
 .panel-header {
   display: flex;
@@ -687,9 +698,10 @@ select option { background: var(--card2); }
   top: 0;
   background: var(--card);
   z-index: 1;
+  flex-shrink: 0;
 }
 .panel-title { font-size: 15px; font-weight: 700; font-family: var(--mono); letter-spacing: -.01em; }
-.panel-body { padding: 18px 22px; }
+.panel-body { padding: 18px 22px; flex: 1; }
 .panel-section {
   font-size: 10px;
   font-weight: 700;
@@ -1315,7 +1327,8 @@ body.light {
 }
 body.light .sidebar { box-shadow: 2px 0 14px oklch(0% 0 0 / 0.06); }
 body.light th { background: oklch(96% 0.004 240); border-bottom-color: oklch(0% 0 0 / 0.1); }
-body.light .modal, body.light .detail-panel, body.light .confirm-box { box-shadow: 0 20px 60px oklch(0% 0 0 / 0.12); }
+body.light .modal, body.light .confirm-box { box-shadow: 0 20px 60px oklch(0% 0 0 / 0.12); }
+body.light .detail-panel { box-shadow: -12px 0 40px oklch(0% 0 0 / 0.10), -1px 0 0 var(--border); }
 body.light input, body.light select, body.light textarea { background: oklch(96% 0.004 240); }
 body.light .filter-select { background: oklch(96% 0.004 240); }
 body.light .filter-select option, body.light select option { background: oklch(100% 0.002 240); }
@@ -2036,6 +2049,25 @@ function renderPipeline() {
     {key:'road', data:S.road}, {key:'clearing', data:S.clearing}
   ];
   return `
+  <div class="freight-banner" id="freight-banner-pipeline">
+    <img src="./Pictures/pipeline.jpg" alt="Pipeline"
+      onload="this.closest('.freight-banner').classList.add('loaded')"
+      onerror="this.closest('.freight-banner').style.background='linear-gradient(135deg, var(--card2) 0%, var(--card) 100%)'">
+    <div class="freight-banner-gradient"></div>
+    <div class="freight-banner-content">
+      <div>
+        <div class="freight-banner-label" style="color:var(--green)">📊 Operations</div>
+        <div class="freight-banner-title">Pipeline</div>
+      </div>
+      <div class="freight-banner-pills">
+        <div class="banner-pill accent">${active} Active</div>
+        <div class="banner-pill">${delivered} Delivered</div>
+        <div class="banner-pill">${all.length} Total Files</div>
+        <div class="banner-pill">${S.clients.length} Clients</div>
+      </div>
+    </div>
+  </div>
+  <div style="padding-top:20px">
   <div class="stats-row" style="grid-template-columns:repeat(5,1fr)">
     <div class="stat-card" style="border-color:rgba(88,166,255,.2)"><div class="stat-label">Containers</div><div class="stat-value" style="color:var(--blue)">${S.containers.length}</div><div class="stat-sub">Total tracked</div></div>
     <div class="stat-card"><div class="stat-label">Total Files</div><div class="stat-value">${all.length}</div><div class="stat-sub">All types</div></div>
@@ -2080,6 +2112,7 @@ function renderPipeline() {
         </tbody>
       </table>
     </div>
+  </div>
   </div>`;
 }
 
@@ -2329,19 +2362,16 @@ function openPanel(type, id) {
   if (!record) return;
   document.getElementById('panel-title').textContent = record.fileNumber;
   document.getElementById('panel-body').innerHTML = panelBody(type, record);
-  applyClickOrigin(document.getElementById('detail-panel'));
   document.getElementById('panel-overlay').classList.add('open');
 }
 
 function closePanel(e) {
   if (e && e.target !== document.getElementById('panel-overlay')) return;
   const overlay = document.getElementById('panel-overlay');
-  const panel   = document.getElementById('detail-panel');
   overlay.classList.add('closing');
   setTimeout(() => {
     overlay.classList.remove('open','closing');
-    resetOrigin(panel);
-  }, 200);
+  }, 240);
 }
 
 const STATUS_COLORS = {
