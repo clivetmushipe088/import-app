@@ -691,7 +691,7 @@ select option { background: var(--card2); }
 .panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 18px 22px;
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -700,7 +700,7 @@ select option { background: var(--card2); }
   z-index: 1;
   flex-shrink: 0;
 }
-.panel-title { font-size: 15px; font-weight: 700; font-family: var(--mono); letter-spacing: -.01em; }
+.panel-header > .modal-close { flex-shrink: 0; }
 .panel-body { padding: 18px 22px; flex: 1; }
 .panel-section {
   font-size: 10px;
@@ -1155,6 +1155,56 @@ body.light .freight-banner-title { color: #fff; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: oklch(100% 0 0 / 0.09); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: oklch(100% 0 0 / 0.16); }
+
+/* ── EDITABLE PANEL TITLE ────────────────── */
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+.panel-title-text {
+  cursor: pointer;
+  border-radius: 5px;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  transition: background 120ms, color 120ms;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-title-text:hover { background: oklch(70% 0.17 245 / 0.12); color: var(--blue); }
+.panel-title-edit-hint {
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 140ms;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.panel-header:hover .panel-title-edit-hint { opacity: 1; }
+.panel-title-input {
+  background: var(--surface);
+  border: 1px solid var(--blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  padding: 4px 9px;
+  outline: none;
+  box-shadow: 0 0 0 3px oklch(70% 0.17 245 / 0.22);
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  transition: box-shadow 150ms;
+}
 
 /* ── INLINE EDIT ─────────────────────────── */
 .editable-val {
@@ -2360,9 +2410,72 @@ function rerenderTable(type) {
 function openPanel(type, id) {
   const record = S[type].find(r=>r.id===id);
   if (!record) return;
-  document.getElementById('panel-title').textContent = record.fileNumber;
+  const panel = document.getElementById('detail-panel');
+  panel.dataset.type = type;
+  panel.dataset.id   = id;
+  _setEditablePanelTitle(record.fileNumber);
   document.getElementById('panel-body').innerHTML = panelBody(type, record);
   document.getElementById('panel-overlay').classList.add('open');
+}
+
+function _setEditablePanelTitle(name) {
+  document.getElementById('panel-title').innerHTML =
+    `<span class="panel-title-text" onclick="startFileNameEdit()" title="Click to rename">${name}</span>`
+    + `<span class="panel-title-edit-hint" title="Click name to rename">✏</span>`;
+}
+
+function startFileNameEdit() {
+  const panel  = document.getElementById('detail-panel');
+  const type   = panel.dataset.type;
+  const id     = panel.dataset.id;
+  const record = S[type]?.find(r => r.id === id);
+  if (!record) return;
+  const titleEl = document.getElementById('panel-title');
+  titleEl.innerHTML =
+    `<input id="panel-title-input" class="panel-title-input" value="${record.fileNumber}" autocomplete="off" spellcheck="false">`
+    + `<button class="inline-save" onclick="saveFileName()" title="Save (Enter)">✓</button>`
+    + `<button class="inline-cancel" onclick="_setEditablePanelTitle('${record.fileNumber}')" title="Cancel (Esc)">✕</button>`;
+  const inp = document.getElementById('panel-title-input');
+  inp.focus();
+  inp.select();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); saveFileName(); }
+    if (e.key === 'Escape') { _setEditablePanelTitle(record.fileNumber); }
+  });
+}
+
+async function saveFileName() {
+  const panel  = document.getElementById('detail-panel');
+  const type   = panel.dataset.type;
+  const id     = panel.dataset.id;
+  const inp    = document.getElementById('panel-title-input');
+  if (!inp) return;
+  const newName = inp.value.trim();
+  if (!newName) { toast('File number cannot be empty', 'error'); return; }
+  const record  = S[type]?.find(r => r.id === id);
+  if (!record) return;
+  const oldName = record.fileNumber;
+  if (newName === oldName) { _setEditablePanelTitle(oldName); return; }
+
+  // Disable input while saving
+  inp.disabled = true;
+
+  try {
+    await atUpdate(CONFIG.tables[type], id, { 'File Number': newName });
+    record.fileNumber = newName;
+    // Keep linked containers in sync for sea freight
+    if (type === 'sea') {
+      S.containers.forEach(c => {
+        if (c.fileNumber.toLowerCase() === oldName.toLowerCase()) c.fileNumber = newName;
+      });
+    }
+    _setEditablePanelTitle(newName);
+    rerenderTable(type);
+    toast('✅ File number updated');
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    _setEditablePanelTitle(oldName);
+  }
 }
 
 function closePanel(e) {
