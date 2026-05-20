@@ -4094,6 +4094,7 @@ function renderRecoveredFunds() {
       <option value="Paid" ${S.statusFilter.recoveredFunds==='Paid'?'selected':''}>Paid</option>
       <option value="Unpaid" ${S.statusFilter.recoveredFunds==='Unpaid'?'selected':''}>Unpaid</option>
     </select>
+    <button class="btn btn-ghost btn-sm" onclick="openRFExportModal()" style="white-space:nowrap;display:flex;align-items:center;gap:5px">⬇ Export Excel</button>
   </div>
   <div class="table-card">
     <div class="table-wrap">
@@ -4243,6 +4244,93 @@ async function deleteRecoveredFund() {
 }
 
 // ════════════════════════════════════════
+// RECOVERED FUNDS EXCEL EXPORT
+// ════════════════════════════════════════
+function openRFExportModal() {
+  const entries = S.recoveredFunds.slice().sort((a, b) =>
+    (a.name||'').localeCompare(b.name||'', undefined, {sensitivity:'base'})
+  );
+
+  const cardsHTML = entries.map(r => {
+    const searchKey = [r.name, r.category, r.refId, r.coa, r.orgAmount, r.status]
+      .filter(Boolean).join(' ').toLowerCase();
+    return '<div class="export-file-card" data-id="' + r.id + '" data-search="' + searchKey + '" onclick="toggleExportCard(this)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;user-select:none;transition:all .15s">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600">' + (r.name || '—') + '</div>'
+      + '<div style="font-size:11px;margin-top:2px;opacity:.7">' + (r.category || 'No category') + ' · ' + fmtCurrency(r.edtAmount) + '</div>'
+      + '</div>'
+      + '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid rgba(255,255,255,.1);opacity:.7;flex-shrink:0;white-space:nowrap">' + (r.status || '—') + '</span>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('modal-title').textContent = '💰 Export Recovered Funds — Select Entries';
+  document.getElementById('modal-body').innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    + '<span style="font-size:12px;color:var(--muted)">' + entries.length + ' entries available</span>'
+    + '<button id="exp-sel-all-btn" onclick="toggleAllExportFiles()" style="background:var(--green-dim);border:1px solid rgba(63,185,80,.25);color:var(--green);font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;cursor:pointer">Select All</button>'
+    + '</div>'
+    + '<div style="position:relative;margin-bottom:10px">'
+    + '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none" width="13" height="13" fill="none" viewBox="0 0 16 16"><path fill="#7d8590" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.85-3.85-.017.017zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>'
+    + '<input id="exp-search" oninput="filterExportCards(this.value)" placeholder="Search name, category, status..." style="width:100%;padding:8px 10px 8px 32px;background:var(--surface);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-family:var(--font);font-size:12px;outline:none" onfocus="this.style.borderColor=\'var(--green)\'" onblur="this.style.borderColor=\'var(--border2)\'">'
+    + '</div>'
+    + '<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:4px">'
+    + cardsHTML
+    + '</div>';
+
+  document.getElementById('modal-footer').innerHTML =
+    '<span id="exp-count-lbl" data-unit="entry" style="font-size:12px;color:var(--muted);margin-right:auto;align-self:center">0 entries selected</span>'
+    + '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'
+    + '<button class="btn btn-green" onclick="doRFExport()">⬇ Export Excel</button>';
+
+  applyClickOrigin(document.querySelector('#modal-overlay .modal'));
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function doRFExport() {
+  const selectedIds = [...document.querySelectorAll('.export-file-card[data-selected="true"]')].map(el => el.dataset.id);
+  if (!selectedIds.length) { toast('Select at least one entry to export', 'error'); return; }
+
+  const rows = selectedIds.map(id => {
+    const r = S.recoveredFunds.find(x => x.id === id);
+    if (!r) return null;
+    return {
+      'Name':       r.name       || '',
+      'Category':   r.category   || '',
+      'ID':         r.refId      || '',
+      'CO/A':       r.coa        || '',
+      'Org Amount': r.orgAmount  || '',
+      'EDT Amount': r.edtAmount  || '',
+      'Status':     r.status     || '',
+    };
+  }).filter(Boolean);
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 32 }, // Name
+    { wch: 18 }, // Category
+    { wch: 16 }, // ID
+    { wch: 16 }, // CO/A
+    { wch: 16 }, // Org Amount
+    { wch: 14 }, // EDT Amount
+    { wch: 10 }, // Status
+  ];
+
+  // Bold header row
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (ws[cellAddr]) ws[cellAddr].s = { font: { bold: true } };
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Recovered Funds');
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `recovered-funds-export-${date}.xlsx`);
+  closeModal();
+  toast(`✅ Exported ${selectedIds.length} entr${selectedIds.length !== 1 ? 'ies' : 'y'} to Excel`);
+}
+
+// ════════════════════════════════════════
 // THEME TOGGLE
 // ════════════════════════════════════════
 function toggleTheme() {
@@ -4350,7 +4438,10 @@ function updateExportCount() {
   const visible = [...document.querySelectorAll('.export-file-card')].filter(c => c.style.display !== 'none');
   const allVisibleSelected = visible.length > 0 && visible.every(c => c.dataset.selected === 'true');
   const lbl = document.getElementById('exp-count-lbl');
-  if (lbl) lbl.textContent = `${n} file${n !== 1 ? 's' : ''} selected`;
+  if (lbl) {
+    const unit = lbl.dataset.unit || 'file';
+    lbl.textContent = `${n} ${unit}${n !== 1 ? 's' : ''} selected`;
+  }
   const btn = document.getElementById('exp-sel-all-btn');
   if (btn) btn.textContent = allVisibleSelected ? 'Deselect All' : 'Select All';
 }
