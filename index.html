@@ -1636,8 +1636,8 @@ body.light .sidebar-logo { border-bottom-color: oklch(0% 0 0 / 0.08); }
 // CONFIG — replace with your values
 // ════════════════════════════════════════
 const CONFIG = {
-  apiKey: 'patJ7KeyYE7ujuxgJ.dd47f830dfb0cf8b7c00be68a3553543bab53e33293596a811cf4be2ab43f0ea',
-  baseId: 'app6vDrtLCpUAxhFK',
+  apiKey: 'patPSg8O72yJX3YER.58e8281d9d97f762544c3dd283aa0ad56cdaa7a3eb46cd2961abc93b86594ac7',
+  baseId: 'appypkTo1RMkbIjKl',
   base:   'https://api.airtable.com/v0',
   tables: {
     sea:            'Sea Freight',
@@ -1806,7 +1806,7 @@ function normSea(r) {
   // Only keep file-level fields; container data comes from linked Containers table
   return {
     id: r.id, type:'sea',
-    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    fileNumber:    (strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'').trim(),
     client:        Array.isArray(f['Client']) ? f['Client'] : [],
     clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
     docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RCVD'])||'',
@@ -1842,7 +1842,7 @@ function normAir(r) {
   const f = r.fields;
   return {
     id: r.id, type:'air',
-    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    fileNumber:    (strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'').trim(),
     client:        Array.isArray(f['Client']) ? f['Client'] : [],
     clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
     docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RECEIPT'])||'',
@@ -1865,7 +1865,7 @@ function normRoad(r) {
   const f = r.fields;
   return {
     id: r.id, type:'road',
-    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    fileNumber:    (strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'').trim(),
     client:        Array.isArray(f['Client']) ? f['Client'] : [],
     clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
     docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RECEIPT'])||'',
@@ -1891,7 +1891,7 @@ function normClearing(r) {
   const f = r.fields;
   return {
     id: r.id, type:'clearing',
-    fileNumber:    strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'',
+    fileNumber:    (strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'').trim(),
     client:        Array.isArray(f['Client']) ? f['Client'] : [],
     clientName:    strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
     docsRcvd:      strOrArr(f['Docs Received'])||strOrArr(f['DOCS RECEIVED'])||'',
@@ -2336,7 +2336,8 @@ function getHeaders(type) {
 }
 
 function containersForFile(fileNumber) {
-  return S.containers.filter(c => c.fileNumber.toLowerCase() === (fileNumber||'').toLowerCase());
+  const target = (fileNumber||'').trim().toLowerCase();
+  return S.containers.filter(c => (c.fileNumber||'').trim().toLowerCase() === target);
 }
 
 function fmtContainerCell(fileNumber) {
@@ -2463,16 +2464,26 @@ async function saveFileName() {
   try {
     await atUpdate(CONFIG.tables[type], id, { 'File Number': newName });
     record.fileNumber = newName;
-    // Keep linked containers in sync for sea freight
+    // Keep linked containers in sync for sea freight — both in Airtable AND locally
     if (type === 'sea') {
+      const linked = containersForFile(oldName);
+      if (linked.length) {
+        try {
+          await atUpdateBatch(CONFIG.tables.containers, linked.map(c => ({ id: c.id, fields: { 'File Number': newName } })));
+        } catch(ctrErr) {
+          console.error('[saveFileName] failed to sync containers to new File Number', ctrErr);
+          toast('⚠️ File renamed, but ' + linked.length + ' linked container(s) could not be re-synced in Airtable: ' + ctrErr.message, 'error');
+        }
+      }
       S.containers.forEach(c => {
-        if (c.fileNumber.toLowerCase() === oldName.toLowerCase()) c.fileNumber = newName;
+        if ((c.fileNumber||'').trim().toLowerCase() === oldName.trim().toLowerCase()) c.fileNumber = newName;
       });
     }
     _setEditablePanelTitle(newName);
     rerenderTable(type);
-    toast('✅ File number updated');
+    toast('✅ File number updated' + (type === 'sea' ? ' (containers synced)' : ''));
   } catch(e) {
+    console.error('[saveFileName]', e);
     toast('Error: ' + e.message, 'error');
     _setEditablePanelTitle(oldName);
   }
@@ -2614,7 +2625,7 @@ function panelBody(type, r) {
     </div>`;
   }).join('')}
   <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-danger btn-sm" onclick="confirmDelete('${type}','${r.id}','${r.fileNumber}')">🗑 Delete</button>
+    <button class="btn btn-danger btn-sm" onclick="confirmDelete('${type}','${r.id}','${escJs(r.fileNumber)}')">🗑 Delete</button>
     <button class="btn btn-ghost btn-sm" onclick="closePanel()">Close</button>
   </div>
   ${renderAttachmentSection(type, r)}`;
@@ -2893,12 +2904,17 @@ function buildForm(type, r={}) {
           <div class="form-group span2"><label>Remarks</label><textarea id="f-remarks">${v('remarks')}</textarea></div>
         </div>
       </div>
+      ${r.id ? `
+      <div class="form-section">
+        <div class="form-section-title">Containers</div>
+        <p style="font-size:11px;color:var(--muted);line-height:1.6">Containers aren't edited from this form. Close this dialog, open the file's detail panel, and use the <b>Containers</b> section there — changes made there save directly to Airtable.</p>
+      </div>` : `
       <div class="form-section">
         <div class="form-section-title">Containers</div>
         <div id="fc-rows"></div>
         <button type="button" onclick="addFormContainerRow()" class="btn btn-ghost btn-sm" style="margin-top:4px">+ Add Container</button>
         <p style="font-size:11px;color:var(--muted);margin-top:8px">Each container will have its own size, weight, dates, etc. stored in the Containers table.</p>
-      </div>`,
+      </div>`}`,
 
     air: `
       <div class="form-section">
@@ -3254,6 +3270,30 @@ async function runConfirm() {
 }
 
 // ════════════════════════════════════════
+// SAFE ATTRIBUTE ESCAPING
+// ════════════════════════════════════════
+// Used whenever a dynamic field value (which may contain ' or ") gets
+// interpolated into an onclick="...('value')" string. Without this,
+// a single apostrophe in a trucking company / client / remarks value
+// breaks the generated HTML and silently kills that field's Save/Cancel buttons.
+function escAttr(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+
+// For embedding a value as a single-quoted JS argument inside an onclick="...('VALUE')..." string.
+// escAttr() alone is NOT enough here: the browser HTML-decodes the attribute's content before the
+// JS engine parses the handler, so &#39; just turns back into ' and re-breaks the string literal.
+// This escapes the quote/backslash for JS, and only HTML-escapes the outer double-quote delimiter
+// (which IS safely preserved through entity decoding, since it lands inside the single-quoted JS string).
+function escJs(s) {
+  return String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/[\r\n]/g, ' ');
+}
+
+// ════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════
 function toast(msg, type='success') {
@@ -3384,7 +3424,7 @@ function startInlineEdit(el, type, id, label) {
         <option value="">— select —</option>${opts}
       </select>
       <button class="inline-save" onclick="event.stopPropagation();saveInlineClient('${type}','${id}',this)">✓</button>
-      <button class="inline-cancel" onclick="event.stopPropagation();cancelInline(this,'${rec?.clientName||'—'}')">✕</button>
+      <button class="inline-cancel" onclick="event.stopPropagation();cancelInline(this,'${escJs(rec?.clientName||'—')}')">✕</button>
       <button onclick="event.stopPropagation();openNewClientModal('ile-sel')" title="New client"
         style="width:22px;height:22px;border-radius:5px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">+</button>
     </div>`;
@@ -3401,16 +3441,16 @@ function startInlineEdit(el, type, id, label) {
         await atUpdate(CONFIG.tables[type], id, {[fm.atField]: ds||null});
         if (rec) rec[fm.key] = ds;
         toast('✅ Saved'); rerenderTable(type);
-      } catch(e) { toast('Error: '+e.message,'error'); }
+      } catch(e) { console.error('[startInlineEdit:date]', fm.atField, e); toast('Error: '+e.message,'error'); }
     });
     document.addEventListener('click', ()=>{ delete el.dataset.editing; el.classList.remove('editing'); }, {once:true});
     return;
   }
 
   el.innerHTML = `<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">
-    <input class="inline-input" id="ile-inp" type="text" value="${currentRaw}" onclick="event.stopPropagation()" style="max-width:160px">
+    <input class="inline-input" id="ile-inp" type="text" value="${escAttr(currentRaw)}" onclick="event.stopPropagation()" style="max-width:160px">
     <button class="inline-save" onclick="event.stopPropagation();saveInlineText('${type}','${id}','${fm.atField}','${fm.key}',this)">✓</button>
-    <button class="inline-cancel" onclick="event.stopPropagation();cancelInline(this,'${currentRaw||'—'}')">✕</button>
+    <button class="inline-cancel" onclick="event.stopPropagation();cancelInline(this,'${escJs(currentRaw||'—')}')">✕</button>
   </div>`;
   setTimeout(()=>{ const i=document.getElementById('ile-inp'); if(i){i.focus();i.select();} }, 20);
 }
@@ -3442,7 +3482,7 @@ async function saveInlineText(type, id, atField, key, btn) {
     const rec = S[type]?.find(r=>r.id===id);
     if (rec) rec[key] = raw;
     toast('✅ Saved'); rerenderTable(type);
-  } catch(e) { toast('Error: '+e.message,'error'); }
+  } catch(e) { console.error('[saveInlineText]', atField, e); toast('Error: '+e.message,'error'); }
 }
 
 async function saveInlineClient(type, id, btn) {
@@ -3485,16 +3525,16 @@ function startCtrInlineEdit(el, cid, atField, key, fileNumber, mode) {
         if (c) c[key] = ds;
         _refreshCtrHeader(cid, c);
         toast('✅ Saved'); rerenderTable('sea');
-      } catch(e) { toast('Error: '+e.message,'error'); }
+      } catch(e) { console.error('[startCtrInlineEdit:date]', atField, 'container id:', cid, e); toast('Error: '+e.message,'error'); }
     });
     document.addEventListener('click', ()=>{ delete el.dataset.editing; }, {once:true});
     return;
   }
 
   el.innerHTML = `<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">
-    <input class="inline-input" id="ctr-inp-${cid}" type="text" value="${currentRaw}" onclick="event.stopPropagation()" style="max-width:160px">
+    <input class="inline-input" id="ctr-inp-${cid}" type="text" value="${escAttr(currentRaw)}" onclick="event.stopPropagation()" style="max-width:160px">
     <button class="inline-save" onclick="event.stopPropagation();saveCtrText('${cid}','${atField}','${key}','${fileNumber}',this)">✓</button>
-    <button class="inline-cancel" onclick="event.stopPropagation();cancelCtrInline(this,'${currentRaw||'—'}')">✕</button>
+    <button class="inline-cancel" onclick="event.stopPropagation();cancelCtrInline(this,'${escJs(currentRaw||'—')}')">✕</button>
   </div>`;
   setTimeout(()=>{ const i=document.getElementById('ctr-inp-'+cid); if(i){i.focus();i.select();} }, 20);
 }
@@ -3518,7 +3558,12 @@ async function saveCtrText(cid, atField, key, fileNumber, btn) {
     await atUpdate(CONFIG.tables.containers, cid, {[atField]: val||null});
     if (c) { c[key] = val; _refreshCtrHeader(cid, c); }
     toast('✅ Saved'); rerenderTable('sea');
-  } catch(e) { toast('Error: '+e.message,'error'); }
+  } catch(e) {
+    console.error('[saveCtrText] field:', atField, '| container id:', cid, '| file:', fileNumber, '| error:', e);
+    toast('Error saving "'+atField+'": '+e.message,'error');
+    // Revert the optimistic UI text back to the last known-good value since the write failed
+    cell.innerHTML = (c?.[key]) || '—';
+  }
 }
 
 function _refreshCtrHeader(cid, c) {
@@ -3744,6 +3789,7 @@ function closePdfPreview(e) {
 function containerCardHTML(c, fileNumber) {
   const statusOpts = `<option value="">— Status —</option>${STATUSES.map(s=>`<option value="${s}" ${c.status===s?'selected':''}>${s}</option>`).join('')}`;
   const cid = c.id;
+  const fn = escJs(fileNumber); // safe to embed as a single-quoted JS arg inside onclick='...' below
   return `
     <div class="ctr-card" id="ctr-${cid}">
       <div class="ctr-header" onclick="toggleContainerExpand('${cid}')">
@@ -3754,54 +3800,54 @@ function containerCardHTML(c, fileNumber) {
         </div>
         <select style="width:130px;flex:none;padding:5px 7px;border-radius:6px;background:var(--card);border:1px solid var(--border2);color:var(--text);font-size:12px"
           onclick="event.stopPropagation()"
-          onchange="updateContainerStatus('${cid}',this.value,'${fileNumber}')">
+          onchange="updateContainerStatus('${cid}',this.value,'${fn}')">
           ${statusOpts}
         </select>
-        <button onclick="event.stopPropagation();deleteContainer('${cid}','${fileNumber}')" class="container-row-remove" title="Remove">✕</button>
+        <button onclick="event.stopPropagation();deleteContainer('${cid}','${fn}')" class="container-row-remove" title="Remove">✕</button>
       </div>
       <div class="ctr-expand" id="ctr-expand-${cid}">
         <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Tap a field to edit</div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Size</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Size','size','${fileNumber}','text')">${c.size||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Size','size','${fn}','text')">${c.size||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Weight (KGS)</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Weight','weight','${fileNumber}','text')">${c.weight||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Weight','weight','${fn}','text')">${c.weight||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Date of Discharge</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Date of Discharge','dateDischarge','${fileNumber}','date')">${fmtDate(c.dateDischarge)||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Date of Discharge','dateDischarge','${fn}','date')">${fmtDate(c.dateDischarge)||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Container Loading Date</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Container loading date','containerLoadDate','${fileNumber}','date')">${fmtDate(c.containerLoadDate)||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Container loading date','containerLoadDate','${fn}','date')">${fmtDate(c.containerLoadDate)||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">RRA Reference</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','RRA REFERENCE','rra','${fileNumber}','text')">${c.rra||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','RRA REFERENCE','rra','${fn}','text')">${c.rra||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Destination</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Destination','destination','${fileNumber}','text')">${c.destination||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Destination','destination','${fn}','text')">${c.destination||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Truck No.</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Truck No','truckNo','${fileNumber}','text')">${c.truckNo||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Truck No','truckNo','${fn}','text')">${c.truckNo||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Trucking Company</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Trucking Company','trucking','${fileNumber}','text')">${c.trucking||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Trucking Company','trucking','${fn}','text')">${c.trucking||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Arrival at Magerwa</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Arrival at Magerwa','arrivalMagerwa','${fileNumber}','date')">${fmtDate(c.arrivalMagerwa)||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Arrival at Magerwa','arrivalMagerwa','${fn}','date')">${fmtDate(c.arrivalMagerwa)||'—'}</div>
         </div>
         <div class="ctr-field-row">
           <div class="ctr-field-key">Date of Offload</div>
-          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Date of Offload','dateOffload','${fileNumber}','date')">${fmtDate(c.dateOffload)||'—'}</div>
+          <div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Date of Offload','dateOffload','${fn}','date')">${fmtDate(c.dateOffload)||'—'}</div>
         </div>
-        ${c.notes ? `<div class="ctr-field-row"><div class="ctr-field-key">Notes</div><div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Notes','notes','${fileNumber}','text')">${c.notes}</div></div>` : ''}
+        ${c.notes ? `<div class="ctr-field-row"><div class="ctr-field-key">Notes</div><div class="ctr-field-val" onclick="startCtrInlineEdit(this,'${cid}','Notes','notes','${fn}','text')">${c.notes}</div></div>` : ''}
       </div>
     </div>`;
 }
@@ -3811,7 +3857,7 @@ function renderContainerSection(fileNumber) {
   return `
   <div class="panel-section" style="display:flex;align-items:center;justify-content:space-between">
     <span>Containers (${ctrs.length})</span>
-    <button class="add-container-btn" onclick="openAddContainerModal('${fileNumber}')">+ Add</button>
+    <button class="add-container-btn" onclick="openAddContainerModal('${escJs(fileNumber)}')">+ Add</button>
   </div>
   <div id="container-section">
     ${ctrs.length ? ctrs.map(c => containerCardHTML(c, fileNumber)).join('') : `<div style="color:var(--muted);font-size:12px;padding:8px 0">No containers yet — click + Add to add one.</div>`}
