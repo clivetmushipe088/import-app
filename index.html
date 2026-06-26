@@ -64,6 +64,9 @@
   --clear:    oklch(66% 0.19 145);
   --clear-dim:oklch(66% 0.19 145 / 0.14);
 
+  --rto:      oklch(68% 0.18 185);
+  --rto-dim:  oklch(68% 0.18 185 / 0.14);
+
   /* Layout */
   --radius:   8px;
   --radius-lg:12px;
@@ -343,7 +346,7 @@ html, body {
 .stat-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
 /* ── PIPELINE TYPE CARDS ─────────────────── */
-.pipeline-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+.pipeline-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .type-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -367,6 +370,7 @@ html, body {
 .type-card.air { border-top: 2px solid var(--air); }
 .type-card.road { border-top: 2px solid var(--road); }
 .type-card.clear { border-top: 2px solid var(--clear); }
+.type-card.importRTO { border-top: 2px solid var(--rto); }
 
 .type-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .type-card-name { font-size: 12px; font-weight: 600; color: var(--muted2); display: flex; align-items: center; gap: 7px; }
@@ -517,6 +521,7 @@ tbody tr td:last-child { border-radius: 0 6px 6px 0; }
 .b-air    { background: var(--air-dim);    color: var(--air); }
 .b-road   { background: var(--road-dim);   color: var(--road); }
 .b-clear  { background: var(--clear-dim);  color: var(--clear); }
+.b-rto    { background: var(--rto-dim);    color: var(--rto); }
 
 /* ── MODAL ───────────────────────────────── */
 .modal-overlay {
@@ -1374,6 +1379,7 @@ body.light {
   --air-dim:   oklch(65% 0.19 295 / 0.09);
   --road-dim:  oklch(68% 0.17 55  / 0.09);
   --clear-dim: oklch(66% 0.19 145 / 0.09);
+  --rto-dim:   oklch(68% 0.18 185 / 0.09);
 }
 body.light .sidebar { box-shadow: 2px 0 14px oklch(0% 0 0 / 0.06); }
 body.light th { background: oklch(96% 0.004 240); border-bottom-color: oklch(0% 0 0 / 0.1); }
@@ -1467,6 +1473,17 @@ body.light .sidebar-logo { border-bottom-color: oklch(0% 0 0 / 0.08); }
       </span>
       <span>Clearing Only</span>
       <span class="nav-count" id="cnt-clear">0</span>
+    </div>
+    <div class="nav-item" data-page="importRTO" onclick="navigate('importRTO')">
+      <span class="nav-icon" style="color:var(--rto)">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+          <path d="M2 10l2-6h8l2 6H2z" fill="currentColor" opacity=".25"/>
+          <path d="M1 12c1.333-.667 2.667-.667 4 0s2.667.667 4 0 2.667-.667 4 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M8 4V2M6 4V2M10 4V2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span>Import RTO</span>
+      <span class="nav-count" id="cnt-rto">0</span>
     </div>
   </div>
 
@@ -1644,6 +1661,7 @@ const CONFIG = {
     air:            'Air Freight',
     road:           'Road Freight',
     clearing:       'Clearing Only',
+    importRTO:      'ImportRTO',
     clients:        'Clients',
     containers:     'Containers',
     recoveredFunds: 'Recovered funds'
@@ -1655,10 +1673,10 @@ const CONFIG = {
 // ════════════════════════════════════════
 const S = {
   page: 'pipeline',
-  sea: [], air: [], road: [], clearing: [], clients: [], containers: [], recoveredFunds: [],
+  sea: [], air: [], road: [], clearing: [], importRTO: [], clients: [], containers: [], recoveredFunds: [],
   loading: false,
-  search: { sea:'', air:'', road:'', clearing:'', recoveredFunds:'' },
-  statusFilter: { sea:'all', air:'all', road:'all', clearing:'all', recoveredFunds:'all' },
+  search: { sea:'', air:'', road:'', clearing:'', importRTO:'', recoveredFunds:'' },
+  statusFilter: { sea:'all', air:'all', road:'all', clearing:'all', importRTO:'all', recoveredFunds:'all' },
 };
 
 const STATUSES = [
@@ -1694,6 +1712,7 @@ const TYPE_META = {
   air:      { label:'Air Freight',    color:'var(--air)',   badge:'b-air',   icon:'✈️' },
   road:     { label:'Road Freight',   color:'var(--road)',  badge:'b-road',  icon:'🚛' },
   clearing: { label:'Clearing Only',  color:'var(--clear)', badge:'b-clear', icon:'🏛️' },
+  importRTO:{ label:'Import RTO',     color:'var(--rto)',   badge:'b-rto',   icon:'🔄' },
 };
 
 // ════════════════════════════════════════
@@ -1918,6 +1937,36 @@ function normClearing(r) {
   };
 }
 
+function normImportRTO(r) {
+  const f = r.fields;
+  return {
+    id: r.id, type:'importRTO',
+    fileNumber:        (strOrArr(f['File Number'])||strOrArr(f['FILE NUMBER'])||'').trim(),
+    client:            Array.isArray(f['Client']) ? f['Client'] : [],
+    clientName:        strOrArr(f['Client Name'])||strOrArr(f['CLIENT'])||'',
+    docsRcvd:          strOrArr(f['Docs Received'])||'',
+    goods:             strOrArr(f['Description of Goods'])||'',
+    exporter:          strOrArr(f['Exporter'])||'',
+    pol:               strOrArr(f['Port of Loading'])||'',
+    pod:               strOrArr(f['POD'])||'',
+    remarks:           strOrArr(f['Remarks'])||'',
+    size:              strOrArr(f['Size'])||'',
+    weight:            strOrArr(f['Weight (KGS)'])||'',
+    dateDischarge:     strOrArr(f['Date of Discharge'])||'',
+    containerLoadDate: strOrArr(f['Container Loading Date'])||'',
+    rra:               strOrArr(f['RRA Reference'])||'',
+    destination:       strOrArr(f['Destination'])||'',
+    truckNo:           strOrArr(f['Truck No'])||'',
+    trucking:          strOrArr(f['Trucking Company'])||'',
+    arrivalMagerwa:    strOrArr(f['Arrival at Magerwa'])||'',
+    dateOffload:       strOrArr(f['Date of Offload'])||'',
+    invoiceStatus:     strOrArr(f['Invoice Status'])||'',
+    status:            strOrArr(f['Status'])||'',
+    attachments: Array.isArray(f['Attachment']) ? f['Attachment'] : [],
+    raw: f,
+  };
+}
+
 function normRecoveredFund(r) {
   const f = r.fields;
   return {
@@ -1937,11 +1986,12 @@ async function loadAll() {
   S.loading = true;
   renderContent();
   try {
-    const [sea, air, road, clearing, clients, containers, recoveredFunds] = await Promise.all([
+    const [sea, air, road, clearing, importRTO, clients, containers, recoveredFunds] = await Promise.all([
       atFetch(CONFIG.tables.sea),
       atFetch(CONFIG.tables.air),
       atFetch(CONFIG.tables.road),
       atFetch(CONFIG.tables.clearing),
+      atFetch(CONFIG.tables.importRTO),
       atFetch(CONFIG.tables.clients),
       atFetch(CONFIG.tables.containers),
       atFetch(CONFIG.tables.recoveredFunds),
@@ -1950,6 +2000,7 @@ async function loadAll() {
     S.air        = air.map(normAir).filter(r => r.fileNumber);
     S.road       = road.map(normRoad).filter(r => r.fileNumber);
     S.clearing   = clearing.map(normClearing).filter(r => r.fileNumber);
+    S.importRTO  = importRTO.map(normImportRTO).filter(r => r.fileNumber);
     S.clients    = clients.map(r => ({id:r.id, name:r.fields['Name']||'', ...r.fields}));
     S.recoveredFunds = recoveredFunds.map(normRecoveredFund);
     S.containers = containers.map(r => ({
@@ -1986,12 +2037,13 @@ async function refreshAll() {
 }
 
 function updateCounts() {
-  const all = [...S.sea, ...S.air, ...S.road, ...S.clearing];
+  const all = [...S.sea, ...S.air, ...S.road, ...S.clearing, ...S.importRTO];
   document.getElementById('cnt-all').textContent       = all.length;
   document.getElementById('cnt-sea').textContent       = S.sea.length;
   document.getElementById('cnt-air').textContent       = S.air.length;
   document.getElementById('cnt-road').textContent      = S.road.length;
   document.getElementById('cnt-clear').textContent     = S.clearing.length;
+  document.getElementById('cnt-rto').textContent       = S.importRTO.length;
   document.getElementById('cnt-inv-needs').textContent = all.filter(r=>!r.invoiceStatus||r.invoiceStatus==='Not Invoiced').length;
   document.getElementById('cnt-inv-sent').textContent  = all.filter(r=>r.invoiceStatus==='Invoice Sent').length;
   document.getElementById('cnt-inv-partial').textContent = all.filter(r=>r.invoiceStatus==='Partially Paid').length;
@@ -2036,6 +2088,7 @@ function renderContent() {
     air:         ()=>renderFreight('air'),
     road:        ()=>renderFreight('road'),
     clearing:    ()=>renderFreight('clearing'),
+    importRTO:   ()=>renderFreight('importRTO'),
     'inv-needs': ()=>renderInvoicePage('Not Invoiced'),
     'inv-sent':  ()=>renderInvoicePage('Invoice Sent'),
     'inv-partial':()=>renderInvoicePage('Partially Paid'),
@@ -2048,7 +2101,7 @@ function renderContent() {
 }
 
 function attachListeners() {
-  ['sea','air','road','clearing'].forEach(t => {
+  ['sea','air','road','clearing','importRTO'].forEach(t => {
     const s = document.getElementById(`search-${t}`);
     if (s) s.addEventListener('input', e => { S.search[t]=e.target.value; rerenderTable(t); });
     const f = document.getElementById(`filter-${t}`);
@@ -2091,12 +2144,13 @@ function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDat
 // PIPELINE PAGE
 // ════════════════════════════════════════
 function renderPipeline() {
-  const all = [...S.sea,...S.air,...S.road,...S.clearing];
+  const all = [...S.sea,...S.air,...S.road,...S.clearing,...S.importRTO];
   const active = all.filter(r=>isActive(r)).length;
   const delivered = all.filter(r=>!isActive(r)).length;
   const types = [
     {key:'sea', data:S.sea}, {key:'air', data:S.air},
-    {key:'road', data:S.road}, {key:'clearing', data:S.clearing}
+    {key:'road', data:S.road}, {key:'clearing', data:S.clearing},
+    {key:'importRTO', data:S.importRTO}
   ];
   return `
   <div class="freight-banner" id="freight-banner-pipeline">
@@ -2170,7 +2224,7 @@ function renderPipeline() {
 // INVOICE PAGE
 // ════════════════════════════════════════
 function renderInvoicePage(filterStatus) {
-  const all = [...S.sea,...S.air,...S.road,...S.clearing];
+  const all = [...S.sea,...S.air,...S.road,...S.clearing,...S.importRTO];
   const rows = filterStatus === 'Not Invoiced'
     ? all.filter(r => !r.invoiceStatus || r.invoiceStatus === 'Not Invoiced' || r.invoiceStatus === '')
     : all.filter(r => r.invoiceStatus === filterStatus);
@@ -2261,7 +2315,7 @@ function getFiltered(type) {
     }
     const q = S.search[type].toLowerCase();
     if (!q) return true;
-    return [r.fileNumber,r.clientName,r.container,r.airwaybill,r.bl,r.goods].some(v=>(v||'').toLowerCase().includes(q));
+    return [r.fileNumber,r.clientName,r.container,r.airwaybill,r.bl,r.goods,r.truckNo,r.destination].some(v=>(v||'').toLowerCase().includes(q));
   }).sort((a, b) => (a.fileNumber||'').localeCompare(b.fileNumber||'', undefined, {numeric:true, sensitivity:'base'}));
 }
 
@@ -2273,9 +2327,9 @@ function renderFreight(type) {
   const active    = data.length - delivered - onHold;
   document.getElementById('page-badge').textContent = `${data.length} files`;
 
-  const bannerImages = { sea: 'sea.jpg', air: 'air.jpg', road: 'road.jpg', clearing: 'clearing.jpg' };
-  const bannerColors = { sea: 'var(--sea)', air: 'var(--air)', road: 'var(--road)', clearing: 'var(--clear)' };
-  const bannerLabels = { sea: '🚢 Ocean Freight', air: '✈️ Air Freight', road: '🚛 Road Freight', clearing: '📋 Customs Clearing' };
+  const bannerImages = { sea: 'sea.jpg', air: 'air.jpg', road: 'road.jpg', clearing: 'clearing.jpg', importRTO: 'sea.jpg' };
+  const bannerColors = { sea: 'var(--sea)', air: 'var(--air)', road: 'var(--road)', clearing: 'var(--clear)', importRTO: 'var(--rto)' };
+  const bannerLabels = { sea: '🚢 Ocean Freight', air: '✈️ Air Freight', road: '🚛 Road Freight', clearing: '📋 Customs Clearing', importRTO: '🔄 Import RTO' };
   const imgSrc = `./Pictures/${bannerImages[type]}`;
 
   return `
@@ -2331,6 +2385,7 @@ function getHeaders(type) {
     air:      base+`<th>Airwaybill</th><th>Airline</th><th>POL</th><th>POD</th><th>Weight</th><th>Status</th><th>Date Delivered</th><th>Invoice</th>`,
     road:     base+`<th>BL No.</th><th>POL</th><th>POD</th><th>Truck No.</th><th>Status</th><th>Date Offload</th><th>Invoice</th>`,
     clearing: base+`<th>BL</th><th>Shipping Line</th><th>POL</th><th>POD</th><th>Status</th><th>Docs Rcvd</th><th>Invoice</th>`,
+    importRTO:base+`<th>POL</th><th>POD</th><th>Size</th><th>Truck No.</th><th>Destination</th><th>Status</th><th>Docs Rcvd</th><th>Invoice</th>`,
   };
   return h[type]||base;
 }
@@ -2394,6 +2449,7 @@ function renderRows(type, rows) {
     air: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-mono">${r.airwaybill||'—'}</td><td class="td-dim">${r.airline||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td class="td-dim">${r.weight||'—'}</td><td>${statusBadge(r.status)}</td><td class="td-dim">${fmtDate(r.dateDelivered)}</td>${invoiceCell('air',r)}`,
     road: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-mono">${r.bl||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td class="td-mono">${r.truckNo||'—'}</td><td>${statusBadge(r.status||'TBA')}</td><td class="td-dim">${fmtDate(r.dateOffload)}</td>${invoiceCell('road',r)}`,
     clearing: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-mono">${r.bl||'—'}</td><td class="td-dim td-truncate">${r.shippingLine||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td>${statusBadge(r.status||'TBA')}</td><td class="td-dim">${fmtDate(r.docsRcvd)}</td>${invoiceCell('clearing',r)}`,
+    importRTO: r => `<td class="td-mono">${r.fileNumber}</td><td class="td-bold">${r.clientName||'—'}</td><td class="td-dim">${r.pol||'—'}</td><td class="td-dim">${r.pod||'—'}</td><td class="td-dim">${r.size||'—'}</td><td class="td-mono">${r.truckNo||'—'}</td><td class="td-dim td-truncate">${r.destination||'—'}</td><td>${statusBadge(r.status||'TBA')}</td><td class="td-dim">${fmtDate(r.docsRcvd)}</td>${invoiceCell('importRTO',r)}`,
   };
   return rows.map(r=>`<tr onclick="openPanel('${type}','${r.id}')">${rowMap[type](r)}</tr>`).join('');
 }
@@ -2588,6 +2644,26 @@ function panelBody(type, r) {
       ['Truck No.', r.truckNo||'—'],
       ['Trucking Company', r.trucking||'—'],
       ['Date Offloaded', fmtDate(r.dateOffload)],
+      ['Docs Received', fmtDate(r.docsRcvd)],
+      ['Remarks', r.remarks||'—'],
+      ['Invoice Status', r.invoiceStatus||'—'],
+    ],
+    importRTO: [
+      ['Client', r.clientName||'—'],
+      ['Goods Description', r.goods||'—'],
+      ['Exporter', r.exporter||'—'],
+      ['Port of Loading', r.pol||'—'],
+      ['Port of Discharge', r.pod||'—'],
+      ['Size', r.size||'—'],
+      ['Weight (KGS)', r.weight||'—'],
+      ['Date of Discharge', fmtDate(r.dateDischarge)],
+      ['Container Loading Date', fmtDate(r.containerLoadDate)],
+      ['RRA Reference', r.rra||'—'],
+      ['Destination', r.destination||'—'],
+      ['Truck No.', r.truckNo||'—'],
+      ['Trucking Company', r.trucking||'—'],
+      ['Arrival at Magerwa', fmtDate(r.arrivalMagerwa)],
+      ['Date of Offload', fmtDate(r.dateOffload)],
       ['Docs Received', fmtDate(r.docsRcvd)],
       ['Remarks', r.remarks||'—'],
       ['Invoice Status', r.invoiceStatus||'—'],
@@ -2996,6 +3072,38 @@ function buildForm(type, r={}) {
           <div class="form-group span2"><label>Remarks</label><textarea id="f-remarks">${v('remarks')}</textarea></div>
         </div>
       </div>`,
+
+    importRTO: `
+      <div class="form-section">
+        <div class="form-section-title">File Information</div>
+        <div class="form-grid">
+          <div class="form-group"><label>File Number *</label><input id="f-fileNumber" placeholder="e.g. IMPRTO26001" value="${v('fileNumber') || 'IMPRTO'}"></div>
+          <div class="form-group"><label>Client *</label>${clientFieldHTML(v('clientName'))}</div>
+          <div class="form-group"><label>Docs Received</label>${formDateField('f-docsRcvd',raw('Docs Received')||v('docsRcvd'))}</div>
+          <div class="form-group"><label>Status</label>${statusSelect(v('status'))}</div>
+          <div class="form-group"><label>Invoice Status</label>${invoiceStatusSelect(v('invoiceStatus'))}</div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Shipment Details</div>
+        <div class="form-grid">
+          <div class="form-group span2"><label>Description of Goods</label><input id="f-goods" placeholder="e.g. REFINED SOYA BEAN OIL" value="${v('goods')}"></div>
+          <div class="form-group"><label>Exporter</label><input id="f-exporter" value="${v('exporter')}"></div>
+          <div class="form-group"><label>Port of Loading</label><input id="f-pol" placeholder="e.g. MOMBASA" value="${v('pol')}"></div>
+          <div class="form-group"><label>Port of Discharge (POD)</label><input id="f-pod" placeholder="e.g. KIGALI" value="${v('pod')}"></div>
+          <div class="form-group"><label>Size</label><input id="f-size" placeholder="e.g. 40HC, 20FT" value="${v('size')}"></div>
+          <div class="form-group"><label>Weight (KGS)</label><input id="f-weight" type="text" inputmode="decimal" placeholder="e.g. 1500.5" value="${v('weight')}"></div>
+          <div class="form-group"><label>Date of Discharge</label>${formDateField('f-dateDischarge',raw('Date of Discharge')||v('dateDischarge'))}</div>
+          <div class="form-group"><label>Container Loading Date</label>${formDateField('f-containerLoadDate',raw('Container Loading Date')||v('containerLoadDate'))}</div>
+          <div class="form-group"><label>RRA Reference</label><input id="f-rra" value="${v('rra')}"></div>
+          <div class="form-group"><label>Destination</label><input id="f-destination" placeholder="e.g. Kigali" value="${v('destination')}"></div>
+          <div class="form-group"><label>Truck No.</label><input id="f-truckNo" value="${v('truckNo')}"></div>
+          <div class="form-group"><label>Trucking Company</label><input id="f-trucking" value="${v('trucking')}"></div>
+          <div class="form-group"><label>Arrival at Magerwa</label>${formDateField('f-arrivalMagerwa',raw('Arrival at Magerwa')||v('arrivalMagerwa'))}</div>
+          <div class="form-group"><label>Date of Offload</label>${formDateField('f-dateOffload',raw('Date of Offload')||v('dateOffload'))}</div>
+          <div class="form-group span2"><label>Remarks</label><textarea id="f-remarks">${v('remarks')}</textarea></div>
+        </div>
+      </div>`,
   };
   return forms[type]||'';
 }
@@ -3116,6 +3224,27 @@ async function saveRecord(type, editId) {
       'Remarks':               g('f-remarks')||undefined,
       'Invoice Status':        invoiceStatus,
     }),
+    importRTO: () => ({
+      'File Number':            fileNumber, 'Client': clientId,
+      'Docs Received':          g('f-docsRcvd')||undefined,
+      'Status':                 status||undefined,
+      'Description of Goods':   g('f-goods')||undefined,
+      'Exporter':               g('f-exporter')||undefined,
+      'Port of Loading':        g('f-pol')||undefined,
+      'POD':                    g('f-pod')||undefined,
+      'Size':                   g('f-size')||undefined,
+      'Weight (KGS)':           w(g('f-weight')),
+      'Date of Discharge':      g('f-dateDischarge')||undefined,
+      'Container Loading Date': g('f-containerLoadDate')||undefined,
+      'RRA Reference':          g('f-rra')||undefined,
+      'Destination':            g('f-destination')||undefined,
+      'Truck No':               g('f-truckNo')||undefined,
+      'Trucking Company':       g('f-trucking')||undefined,
+      'Arrival at Magerwa':     g('f-arrivalMagerwa')||undefined,
+      'Date of Offload':        g('f-dateOffload')||undefined,
+      'Remarks':                g('f-remarks')||undefined,
+      'Invoice Status':         invoiceStatus,
+    }),
   };
 
   const fields = fieldMaps[type]();
@@ -3126,7 +3255,7 @@ async function saveRecord(type, editId) {
     if (editId) {
       const updated = await atUpdate(table, editId, fields);
       // Optimistic local update — no loadAll() needed
-      const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing };
+      const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing, importRTO:normImportRTO };
       const idx = S[type].findIndex(r => r.id === editId);
       if (idx !== -1) {
         const rec = normFns[type](updated);
@@ -3178,7 +3307,7 @@ async function saveRecord(type, editId) {
           });
         }
         // Push the new sea record into local state
-        const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing };
+        const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing, importRTO:normImportRTO };
         const seaRec = normFns[type](created);
         if (!seaRec.clientName && clientId?.length) {
           const cl = S.clients.find(c => c.id === clientId[0]);
@@ -3186,7 +3315,7 @@ async function saveRecord(type, editId) {
         }
         S[type].push(seaRec);
       } else {
-        const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing };
+        const normFns = { sea:normSea, air:normAir, road:normRoad, clearing:normClearing, importRTO:normImportRTO };
         const rec = normFns[type](created);
         if (!rec.clientName && clientId?.length) {
           const cl = S.clients.find(c => c.id === clientId[0]);
@@ -3387,6 +3516,7 @@ const FIELD_MAP = {
   'Port of Loading':      {atField:'Port of Loading',      key:'pol'},
   'Port of Discharge':    {atField:'POD',                  key:'pod'},
   'Exporter':             {atField:'Exporter',             key:'exporter'},
+  'Size':                 {atField:'Size',                 key:'size'},
   'Date of Discharge':    {atField:'Date of Discharge',    key:'dateDischarge',    isDate:true},
   'Container Loading Date':{atField:'Container Loading Date',key:'containerLoadDate',isDate:true},
   'RRA Reference':        {atField:'RRA Reference',        key:'rra'},
@@ -3733,7 +3863,7 @@ async function refreshRecord(type, id) {
   try {
     const r = await fetch(`${CONFIG.base}/${CONFIG.baseId}/${encodeURIComponent(CONFIG.tables[type])}/${id}`, { headers: headers() });
     const d = await r.json();
-    const normFns = { sea: normSea, air: normAir, road: normRoad, clearing: normClearing };
+    const normFns = { sea: normSea, air: normAir, road: normRoad, clearing: normClearing, importRTO: normImportRTO };
     const updated = normFns[type](d);
     const idx = S[type].findIndex(r => r.id === id);
     if (idx !== -1) S[type][idx] = updated;
